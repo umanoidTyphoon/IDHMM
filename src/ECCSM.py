@@ -26,7 +26,6 @@ class ECCScalarMultiplication(Algorithm):
             if bit == 1:
                 p += ecc_q
             ecc_q = 2 * ecc_q
-
         return p
 
     def __str__(self):
