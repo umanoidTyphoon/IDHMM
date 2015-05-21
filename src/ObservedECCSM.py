@@ -12,10 +12,18 @@ class Algorithm(object):
         pass
 
 
-class ECCScalarMultiplication(Algorithm):
+class ObservedECCScalarMultiplication(Algorithm):
     def __init__(self, key, ecc_p):
         self.key = key
         self.ecc_p = ecc_p
+
+        # Observation list:
+        # - D: elliptic point doubling
+        # - AD: elliptic point addition
+        self.obs = []
+
+    def get_obs(self):
+        return self.obs
 
     def run(self):
         ecc_q = self.ecc_p
@@ -25,18 +33,29 @@ class ECCScalarMultiplication(Algorithm):
             bit = int(char)
             if bit == 1:
                 p += ecc_q
+                # Observation performed
+                self.obs.append("AD")
             ecc_q = 2 * ecc_q
+            self.obs.append("D")
         return p
 
     def __str__(self):
         return 'ECCSM parms: <' + str(self.key) + ', ' + str(self.ecc_p) + '>'
 
 
-class RandomizedECCScalarMultiplication(Algorithm):
+class ObservedRandomizedECCScalarMultiplication(Algorithm):
 
     def __init__(self, key, ecc_p):
         self.key = key
         self.ecc_p = ecc_p
+
+        # Observation list:
+        # - D: elliptic point doubling
+        # - AD: elliptic point addition
+        self.obs = []
+
+    def get_obs(self):
+        return self.obs
 
     def run(self):
         ecc_q = self.ecc_p
@@ -50,9 +69,12 @@ class RandomizedECCScalarMultiplication(Algorithm):
             if bit == 0 :
                 if random_bit == 1:
                     r += ecc_q
+                    self.obs.append("AD")
             else:
                 p += ecc_q
+                self.obs.append("AD")
             ecc_q = 2 * ecc_q
+            self.obs.append("D")
         return p
 
     def __str__(self):
