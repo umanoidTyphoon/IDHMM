@@ -1,18 +1,9 @@
 __author__ = 'umanoidTyphoon'
 
-from abc import ABCMeta, abstractmethod
 import random
 
 
-class Algorithm(object):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def run(self, key, ecc_p):
-        pass
-
-
-class KeyGen(Algorithm):
+class KeyGen():
     def __init__(self, key_length=1):
         self.N = key_length
 
