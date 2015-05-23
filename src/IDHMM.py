@@ -5,10 +5,12 @@ from numpy import matrix
 
 class IDHMM:
     def __init__(self, key="0", trace_list=[]):
-        self.belief = init_belief(key)
-        self.transition_models = init_transition_models()
         self.key = key
         self.trace_list = trace_list
+
+        self.belief = init_belief(self.key)
+        self.observation_model = init_observation_model()
+        self.transition_models = init_transition_models()
 
     def infer(self):
         multitrace_inference(self.belief, self.key, self.trace_list)
@@ -20,6 +22,18 @@ def init_belief(key):
     belief.fill(.5)
 
     return belief
+
+
+def init_observation_model():
+    # |-----|--------|---------|
+    # |     |   OD   |   OAD   |
+    # |-----|--------|---------|
+    # |  D  |   .5   |  .0  | .5  |
+    # |-----|-----|------|-----|
+    # | AD  | .5  |  .0  | .5  |
+    # |-----|-----|------|-----|
+    # | RAD | .5  |  .0  | .5  |
+    # |-----|-----|------|-----|
 
 
 def init_transition_models():
