@@ -20,19 +20,27 @@ class IDHMM:
         self.belief = init_belief(self.key)
 
         # ---------------------------------------------- CORRECTNESS TEST ----------------------------------------------
+
         self.observation_model = init_observation_model_test()
         self.transition_models = init_transition_models_test()
+
         # ########################################### END CORRECTNESS TEST #############################################
 
-        self.observation_model = init_observation_model()
-        self.transition_models = init_transition_models()
+        #self.observation_model = init_observation_model()
+        #self.transition_models = init_transition_models()
 
     def get_observation_model(self):
         return self.observation_model
 
     def infer(self):
-        multitrace_inference(self.belief, self.key, self.transition_models, self.observation_model, self.trace_list)
+        belief = multitrace_inference(self.belief, self.key, self.transition_models, self.observation_model,
+                                      self.trace_list)
 
+        print "Final belief: ", belief
+
+        for key_bit in belief:
+            if key_bit > .5:
+                
 
 def init_belief(key):
     key_length = len(key)
@@ -132,36 +140,52 @@ def init_transition_models_test():
     return models
 
 
-def compute_alpha_parm(belief, transition_models, observation_model):
+def compute_alpha_parm(belief, transition_models, observation_model, bit):
 
     print observation_model
-    print "x"
+    print "-----------------------------------------"
+    print observation_model[AD].item(AD)
     print transition_models[1][AD].item(AD)
-    print "Belief", belief.item(0)
+    print "Belief", belief[bit]
 
     p_yi_given_q_i = observation_model[AD].item(AD)
     p_qi_given_qprev_key_bit = transition_models[1][AD].item(AD)
-    p_ki = belief.item(0)
+    p_ki = belief.item(bit)
 
     return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
 
-def singletrace_inference(belief, transition_models, observation_model, trace):
+def singletrace_inference(belief, transition_models, observation_model, trace, bit):
     alpha_parm = None
     beta_parm  = None
-    bayes_rule_numerator   = None
-    bayes_rule_denominator = None
+    bayes_rule_numerator   = .0
+    bayes_rule_denominator = .0
     updated_belief = None
 
-    alpha_parm = compute_alpha_parm(belief, transition_models, observation_model)
+    alpha_stack = []
+    beta_stack = []
+    for observation in trace:
+        alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, bit)
+        print "Alpha parameter computed: ", alpha_parm
+        alpha_stack.append(alpha_parm)
 
-    print "Alpha parameter computed: ", alpha_parm
-    return
+    while alpha_stack:
+        bayes_rule_numerator += alpha_stack.pop()
+
+    belief[bit] = bayes_rule_numerator
+    return belief
 
 
 def multitrace_inference(belief, key, transition_models, observation_model, trace_list):
+        key_bit = 0
+
         print "Initial belief D_0:", belief
         print observation_model
 
         for trace in trace_list:
             print trace
-            belief = singletrace_inference(belief, transition_models, observation_model, trace)
+            print "Bit number - %d" % key_bit
+            print "Belief:", belief
+            belief = singletrace_inference(belief, transition_models, observation_model, trace, key_bit)
+            key_bit += 0
+
+        return belief
