@@ -40,6 +40,7 @@ class IDHMM:
 
         for key_bit in belief:
             if key_bit > .5:
+                return 2
                 
 
 def init_belief(key):
@@ -140,11 +141,17 @@ def init_transition_models_test():
     return models
 
 
-def compute_alpha_parm(belief, transition_models, observation_model, bit):
+def compute_beta_parm(belief, transition_models, observation_model, trace, bit_index):
+    return 1.
+
+
+def compute_alpha_parm(belief, transition_models, observation_model, trace, bit_index):
+    observation = trace[bit_index]
+    print "Observation detected: ", observation
 
     print observation_model
     print "-----------------------------------------"
-    print observation_model[AD].item(AD)
+    print observation_model[observation].item(AD)
     print transition_models[1][AD].item(AD)
     print "Belief", belief[bit]
 
@@ -154,12 +161,23 @@ def compute_alpha_parm(belief, transition_models, observation_model, bit):
 
     return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
 
-def singletrace_inference(belief, transition_models, observation_model, trace, bit):
+
+def singletrace_inference(belief, transition_models, observation_model, trace, bit, key_length):
     alpha_parm = None
     beta_parm  = None
     bayes_rule_numerator   = .0
     bayes_rule_denominator = .0
+    key_bit_index = 1
+    p_kn_given_yi = .0
     updated_belief = None
+
+    while key_bit_index <= key_length:
+        while key_bit_index <= key_length:
+            alpha_parm = compute_alpha_parm(belief,transition_models, observation_model, trace, key_bit_index)
+            beta_parm  = compute_beta_parm(belief,transition_models, observation_model, trace, key_bit_index)
+            p_kn_given_yi += alpha_parm * beta_parm
+        key_bit_index += 1
+    #TODO MANCA LA DIVISIONE
 
     alpha_stack = []
     beta_stack = []
@@ -175,17 +193,26 @@ def singletrace_inference(belief, transition_models, observation_model, trace, b
     return belief
 
 
+def get_key_length(observations_string):
+    observations_list = observations_string.split()
+    print "Observations list: ", observations_list
+
+    return len(observations_list)
+
 def multitrace_inference(belief, key, transition_models, observation_model, trace_list):
-        key_bit = 0
+    key_length = get_key_length(trace_list[0])
+    print "Supposed key length given by observations: %d" % key_length
 
-        print "Initial belief D_0:", belief
-        print observation_model
+    key_bit = 0
 
-        for trace in trace_list:
-            print trace
-            print "Bit number - %d" % key_bit
-            print "Belief:", belief
-            belief = singletrace_inference(belief, transition_models, observation_model, trace, key_bit)
-            key_bit += 0
+    print "Initial belief D_0:", belief
+    print observation_model
 
-        return belief
+    for trace in trace_list:
+        print trace
+        print "Bit number - %d" % key_bit
+        print "Belief:", belief
+        belief = singletrace_inference(belief, transition_models, observation_model, trace, key_bit, key_length)
+        key_bit += 0
+
+    return belief
