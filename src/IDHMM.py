@@ -142,10 +142,28 @@ def init_transition_models_test():
     return models
 
 
-def compute_beta_parm(belief, transition_models, observation_model, trace, bit_index):
-    return 1.
+def compute_beta_parm(belief, transition_models, observation_model, observation, bit_index):
+    beta = .0
+    p_ynexti_given_qnexti = .0
+    p_qnexti_given_qi_knexti = .0
+    p_knexti = .0
 
-def init_alpha_parm_recursion(belief, observation_model, transition_model, observation):
+    for state in IDHMM_STATES:
+        for bit_value in range(2):
+            p_y1_given_q1 = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
+            p_q1_given_q0_k1 = transition_models[bit_value][IDHMM_STATES.get('D')].item(IDHMM_STATES.get(state))
+            p_k1 = belief[1]
+
+            print "P(y1 | q1): ", p_y1_given_q1
+            print "P(q1 | q0, k1): ", p_q1_given_q0_k1
+            print "P(k1): ", p_k1
+            print "Summing to beta parm the following quantity: %f" % (p_y1_given_q1 * p_q1_given_q0_k1 * p_k1)
+
+            beta += p_y1_given_q1 * p_q1_given_q0_k1 * p_k1
+
+    return beta
+
+def init_alpha_parm_recursion(belief, observation_model, transition_models, observation):
     alpha = .0
     p_y1_given_q1 = .0
     p_q1_given_q0_k1 = .0
@@ -154,7 +172,7 @@ def init_alpha_parm_recursion(belief, observation_model, transition_model, obser
     for state in IDHMM_STATES:
         for bit_value in range(2):
             p_y1_given_q1 = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
-            p_q1_given_q0_k1 = transition_model[bit_value][IDHMM_STATES.get('D')].item(IDHMM_STATES.get(state))
+            p_q1_given_q0_k1 = transition_models[bit_value][IDHMM_STATES.get('D')].item(IDHMM_STATES.get(state))
             p_k1 = belief[0]
 
             print "P(y1 | q1): ", p_y1_given_q1
@@ -167,15 +185,28 @@ def init_alpha_parm_recursion(belief, observation_model, transition_model, obser
     return alpha
 
 
-def compute_alpha_parm(belief, transition_models, observation_model, trace, bit_index):
-    observation = trace.split()[bit_index - 1]
-    print "Observation detected: ", trace
+def compute_alpha_parm(belief, transition_models, observation_model, observation, bit_index, prev_alpha):
+    alpha = .0
+    p_yi_given_qi = .0
+    p_qi_given_qprevi_ki = .0
+    p_ki = .0
 
-    init_alpha = init_alpha_parm_recursion(belief, observation_model, transition_models, observation)
-    print "Alpha initialized at %f" % init_alpha
+    print "Observation detected: ", observation
 
-    return init_alpha
+    for state in IDHMM_STATES:
+        for bit_value in range(2):
+            p_yi_given_qi = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
+            p_qi_given_qprevi_ki = transition_models[bit_value][IDHMM_STATES.get(state)].item(IDHMM_STATES.get(state))
+            p_ki = belief[bit_index]
 
+            print "P(yi | qi): ", p_yi_given_qi
+            print "P(qi | q(i-1), ki): ", p_qi_given_qprevi_ki
+            print "P(ki): ", p_ki
+            print "alpha parm is equal to the following quantity: %f" % (p_yi_given_qi * prev_alpha * p_qi_given_qprevi_ki * p_ki)
+
+            alpha += p_yi_given_qi * prev_alpha * p_qi_given_qprevi_ki * p_ki
+
+    return alpha
 #    for bit in range(get_key_length)
 
 
@@ -204,10 +235,22 @@ def singletrace_inference(belief, transition_models, observation_model, trace, b
     p_kn_given_yi = .0
     updated_belief = None
 
+    observations_list = trace.split()
+    first_observation = observations_list[key_bit_index - 1]
+    print "Observation detected: ", first_observation
+
+    prev_alpha = init_alpha_parm_recursion(belief, observation_model, transition_models, first_observation)
+
+    print "Alpha initialized at %f" % prev_alpha
+
+    print "------------------------------------------------------------------------------------------------------------"
+
     while key_bit_index < key_length:
         #while key_bit_index <= key_length:
-        alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, trace, key_bit_index)
-        beta_parm  = compute_beta_parm(belief, transition_models, observation_model, trace, key_bit_index)
+        observation = observations_list[key_bit_index]
+        alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, observation, key_bit_index,
+                                        prev_alpha)
+        beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index)
         p_kn_given_yi += alpha_parm * beta_parm
         belief[key_bit_index] = p_kn_given_yi
         key_bit_index += 1
