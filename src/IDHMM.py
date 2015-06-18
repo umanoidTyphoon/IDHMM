@@ -9,7 +9,8 @@ D = 0
 AD = 1
 # State related to random elliptic point addition
 RAD = 2
-IDHMM_STATES = {D, AD, RAD}
+IDHMM_STATES = {'D': 0, 'AD': 1}
+#IDHMM_STATES = {'D': 0, 'AD': 1, 'RAD': 2}
 
 
 class IDHMM:
@@ -144,52 +145,85 @@ def init_transition_models_test():
 def compute_beta_parm(belief, transition_models, observation_model, trace, bit_index):
     return 1.
 
+def init_alpha_parm_recursion(belief, observation_model, transition_model, observation):
+    alpha = .0
+    p_y1_given_q1 = .0
+    p_q1_given_q0_k1 = .0
+    p_k1 = .0
+
+    for state in IDHMM_STATES:
+        for bit_value in range(2):
+            p_y1_given_q1 = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
+            p_q1_given_q0_k1 = transition_model[bit_value][IDHMM_STATES.get('D')].item(IDHMM_STATES.get(state))
+            p_k1 = belief[0]
+
+            print "P(y1 | q1): ", p_y1_given_q1
+            print "P(q1 | q0, k1): ", p_q1_given_q0_k1
+            print "P(k1): ", p_k1
+            print "Summing to alpha parm the following quantity: %f" % (p_y1_given_q1 * p_q1_given_q0_k1 * p_k1)
+
+            alpha += p_y1_given_q1 * p_q1_given_q0_k1 * p_k1
+
+    return alpha
+
 
 def compute_alpha_parm(belief, transition_models, observation_model, trace, bit_index):
-    observation = trace[bit_index]
-    print "Observation detected: ", observation
+    observation = trace.split()[bit_index - 1]
+    print "Observation detected: ", trace
 
-    print observation_model
-    print "-----------------------------------------"
-    print observation_model[observation].item(AD)
-    print transition_models[1][AD].item(AD)
-    print "Belief", belief[bit]
+    init_alpha = init_alpha_parm_recursion(belief, observation_model, transition_models, observation)
+    print "Alpha initialized at %f" % init_alpha
 
-    p_yi_given_q_i = observation_model[AD].item(AD)
-    p_qi_given_qprev_key_bit = transition_models[1][AD].item(AD)
-    p_ki = belief.item(bit)
+    return init_alpha
 
-    return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
+#    for bit in range(get_key_length)
+
+
+#    for state in IDHMM_STATES:
+#        compute_alpha_parm_aux(belief, transition_models, observation_model, trace, bit_index)
+
+    # print observation_model
+    # print "-----------------------------------------"
+    # print observation_model[observation].item(AD)
+    # print transition_models[1][AD].item(AD)
+    # print "Belief", belief[bit_index]
+    #
+    # p_yi_given_q_i = observation_model[AD].item(AD)
+    # p_qi_given_qprev_key_bit = transition_models[1][AD].item(AD)
+    # p_ki = belief.item(bit_index)
+    #
+    # return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
 
 
 def singletrace_inference(belief, transition_models, observation_model, trace, bit, key_length):
     alpha_parm = None
-    beta_parm  = None
+    beta_parm  = 1.
     bayes_rule_numerator   = .0
     bayes_rule_denominator = .0
     key_bit_index = 1
     p_kn_given_yi = .0
     updated_belief = None
 
-    while key_bit_index <= key_length:
-        while key_bit_index <= key_length:
-            alpha_parm = compute_alpha_parm(belief,transition_models, observation_model, trace, key_bit_index)
-            beta_parm  = compute_beta_parm(belief,transition_models, observation_model, trace, key_bit_index)
-            p_kn_given_yi += alpha_parm * beta_parm
+    while key_bit_index < key_length:
+        #while key_bit_index <= key_length:
+        alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, trace, key_bit_index)
+        beta_parm  = compute_beta_parm(belief, transition_models, observation_model, trace, key_bit_index)
+        p_kn_given_yi += alpha_parm * beta_parm
+        belief[key_bit_index] = p_kn_given_yi
         key_bit_index += 1
     #TODO MANCA LA DIVISIONE
 
-    alpha_stack = []
-    beta_stack = []
-    for observation in trace:
-        alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, bit)
-        print "Alpha parameter computed: ", alpha_parm
-        alpha_stack.append(alpha_parm)
-
-    while alpha_stack:
-        bayes_rule_numerator += alpha_stack.pop()
-
-    belief[bit] = bayes_rule_numerator
+    # alpha_stack = []
+    # beta_stack = []
+    # for observation in trace:
+    #     alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, bit)
+    #     print "Alpha parameter computed: ", alpha_parm
+    #     alpha_stack.append(alpha_parm)
+    #
+    # while alpha_stack:
+    #     bayes_rule_numerator += alpha_stack.pop()
+    #
+    # belief[bit] = bayes_rule_numerator
     return belief
 
 
