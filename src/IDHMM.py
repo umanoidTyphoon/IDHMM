@@ -47,9 +47,13 @@ class IDHMM:
 
 
 class HiddenState:
-    def __init__(self, state, prob):
+    def __init__(self, state, key, prob):
         self.state = state
+        self.key = key
         self.prob = prob
+
+    def set_bit(self, key_bit):
+
 
     def set_prob(self, prob):
         self.prob = prob
@@ -229,21 +233,26 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
     return alpha
 
 
-def compute_alpha_parm(hidden_path, belief, transition_models, observation_model, observation, bit_index, prev_alpha):
+def compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation, bit_index, prev_alpha):
     alpha = .0
     p_yi_given_qi = .0
     p_qi_given_qprevi_ki = .0
     p_ki = .0
 
-    print "Hidden path: ", print_hidden_path(hidden_path)
+    new_hidden_path = copy.deepcopy(hidden_paths[bit_index])
+    print "Hidden path: ", print_hidden_path(new_hidden_path)
+    print "Hidden path before clear: ", print_hidden_path(new_hidden_path)
+    clear_prob(new_hidden_path)
+    print "Hidden path after clear:  ", print_hidden_path(new_hidden_path)
 
     for state in IDHMM_STATES:
         for bit_value in range(2):
             p_yi_given_qi = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
-            hidden_state = hidden_path.get(IDHMM_STATES.get(state))
+            print "-----------------------------------", bit_index
+            hidden_state = hidden_paths[bit_index + 1].get(IDHMM_STATES.get(state))
             p_qi_given_qprevi_ki = transition_models[bit_value][IDHMM_STATES.get(state)].item(IDHMM_STATES.get(state))
             print state, bit_value, p_yi_given_qi, p_qi_given_qprevi_ki
-            print "Hidden state:", hidden_path.get(IDHMM_STATES.get(state))
+            print "Hidden state:", hidden_state
             if p_yi_given_qi != .0 and p_qi_given_qprevi_ki != .0 and \
                hidden_path.get(IDHMM_STATES.get(state)).get_prob() != .0:
                 p_ki = belief[bit_index]
@@ -300,22 +309,22 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
 
     print "------------------------------------------------------------------------------------------------------------"
 
-    # while key_bit_index < key_length:
-    #     #while key_bit_index <= key_length:
-    #     observation = observations_list[key_bit_index]
-    #     print "Observation detected in the loop:", observation
-    #
-    #     alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation,
-    #                                     key_bit_index, prev_alpha)
-    #     print "Hidden path:", print_hidden_path(hidden_paths)
-    #     # beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index)
-    #     beta_parm = 1.
-    #     p_kn_given_yi += alpha_parm * beta_parm
-    #     belief[key_bit_index] = p_kn_given_yi
-    #     key_bit_index += 1
-    #     print "********************************************************************************************************"
-    #
-    # #TODO MANCA LA DIVISIONE
+    while key_bit_index < key_length:
+        #while key_bit_index <= key_length:
+        observation = observations_list[key_bit_index]
+        print "Observation detected in the loop:", observation
+
+        alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation,
+                                        key_bit_index, prev_alpha)
+        print "Hidden path:", print_hidden_path(hidden_paths)
+        # beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index)
+        beta_parm = 1.
+        p_kn_given_yi += alpha_parm * beta_parm
+        belief[key_bit_index] = p_kn_given_yi
+        key_bit_index += 1
+        print "********************************************************************************************************"
+
+    #TODO MANCA LA DIVISIONE
 
     # alpha_stack = []
     # beta_stack = []
