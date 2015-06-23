@@ -77,8 +77,8 @@ class HiddenState:
 def init_belief(key):
     key_length = len(key)
     belief = np.empty(key_length)
-    # belief.fill(.5)
-    belief.fill(1.)
+    belief.fill(.5)
+    # belief.fill(1.)
 
     return belief
 
@@ -174,7 +174,12 @@ def init_transition_models_test():
     return models
 
 
-def compute_beta_parm(belief, transition_models, observation_model, observation, bit_index):
+def compute_beta_parm(belief, transition_models, observation_model, observation, bit_index, key_length):
+
+    if bit_index == key_length - 1:
+        return 1
+    else:
+
     beta = .0
     p_ynexti_given_qnexti = .0
     p_qnexti_given_qi_knexti = .0
@@ -209,10 +214,10 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
     new_hidden_path = copy.deepcopy(hidden_paths[0])
 
     # DEBUG
-    print "Hidden path in the alpha initialization before clear:", print_hidden_path(new_hidden_path)
+    # print "Hidden path in the alpha initialization before clear:", print_hidden_path(new_hidden_path)
     clear_prob(new_hidden_path)
     # DEBUG
-    print "Hidden path in the alpha initialization after clear:", print_hidden_path(new_hidden_path)
+    # print "Hidden path in the alpha initialization after clear:", print_hidden_path(new_hidden_path)
 
     for state in IDHMM_STATES:
         for bit_value in range(2):
@@ -220,24 +225,30 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
             # q0 is set to 'D'
             p_q1_given_q0_k1 = transition_models[bit_value][IDHMM_STATES.get('D')].item(IDHMM_STATES.get(state))
             p_k1 = belief[0]
-            p_product = p_y1_given_q1 * p_q1_given_q0_k1 * p_k1
-
-            # DEBUG
-            print "P(y1 | q1): ", p_y1_given_q1
-            print "P(q1 | q0, k1): ", p_q1_given_q0_k1
-            print "P(k1): ", p_k1
-            print "Summing to alpha parm the following quantity: %f" % p_product
+            partial_p_product = p_y1_given_q1 * p_q1_given_q0_k1
+            p_product = partial_p_product * p_k1
 
             if p_product != .0:
+                # DEBUG
+                print "P(y1 | q1): ", p_y1_given_q1
+                print "P(q1 | q0, k1): ", p_q1_given_q0_k1
+                print "P(k1): ", p_k1
+                # print "Summing to alpha parm the following quantity: %f" % p_product
                 updated_prob = new_hidden_path[next_hidden_state].get_prob() + p_q1_given_q0_k1
                 new_hidden_path[next_hidden_state].set_state(state)
                 # Set the value bit that has triggered the transition
                 new_hidden_path[current_hidden_state].set_key_bit(bit_value)
                 new_hidden_path[next_hidden_state].set_prob(updated_prob)
                 # DEBUG
-                print "State:", (state, current_hidden_state, next_hidden_state, p_q1_given_q0_k1, p_product)
-                print "Hidden path: ", print_hidden_path(new_hidden_path)
-                alpha += p_y1_given_q1 * p_q1_given_q0_k1 * p_k1
+                # print "State:", (state, current_hidden_state, next_hidden_state, p_q1_given_q0_k1, p_product)
+                # print "Bit value: %d" % bit_value
+                # print "Hidden path: ", print_hidden_path(new_hidden_path)
+                if bit_value == 0:
+                    alpha += partial_p_product * p_k1/2
+                    print alpha
+                else:
+                    # alpha += p_product
+                    alpha += partial_p_product * p_k1 * 2
 
     hidden_paths.append(new_hidden_path)
     return alpha
@@ -257,30 +268,32 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
             hidden_set.append(key)
             hidden_set.append(hidden_state.get_state())
 
-    print "Hidden path: ", print_hidden_path(new_hidden_path)
-    print "Hidden path before clear: ", print_hidden_path(new_hidden_path)
+    # DEBUG
+    # print "Hidden path: ", print_hidden_path(new_hidden_path)
+    # print "Hidden path before clear: ", print_hidden_path(new_hidden_path)
     clear_prob(new_hidden_path)
-    print "Hidden path after clear:  ", print_hidden_path(new_hidden_path)
-    print "Hidden set: ", print_hidden_set(hidden_set)
+    # print "Hidden path after clear:  ", print_hidden_path(new_hidden_path)
+    # print "Hidden set: ", print_hidden_set(hidden_set)
 
     for state in IDHMM_STATES:
         for bit_value in range(2):
             p_yi_given_qi = observation_model[IDHMM_STATES.get(state)].item(IDHMM_STATES.get(observation))
-            print "-----------------------------------", bit_index, state, bit_value
+            # print "-----------------------------------", bit_index, state, bit_value
             for transition_state in IDHMM_STATES:
                 if hidden_set.__contains__(transition_state):
                     p_qi_given_qprevi_ki = transition_models[bit_value][IDHMM_STATES.get(transition_state)].item(IDHMM_STATES.get(state))
                     print state, transition_state, bit_value, p_yi_given_qi, p_qi_given_qprevi_ki
-                    print "Hidden state:", hidden_state
+                    # print "Hidden state:", hidden_state
                     if p_yi_given_qi != .0 and p_qi_given_qprevi_ki != .0: #\
                         # and hidden_path.get(IDHMM_STATES.get(state)).get_prob() != .0:
                         p_ki = belief[bit_index]
-                        p_product = p_yi_given_qi * prev_alpha * p_qi_given_qprevi_ki * p_ki
+                        partial_p_product = p_yi_given_qi * prev_alpha * p_qi_given_qprevi_ki
+                        p_product = partial_p_product * p_ki
 
                         print "P(yi | qi): ", p_yi_given_qi
                         print "P(qi | q(i-1), ki): ", p_qi_given_qprevi_ki
                         print "P(ki): ", p_ki
-                        print "alpha parm is equal to the following quantity: %f" % p_product
+                        # print "alpha parm is equal to the following quantity: %f" % p_product
 
                         # prev_p_qi_given_qprevi_ki = p_qi_given_qprevi_ki
                         hidden_set_state_index = hidden_set.index(transition_state) - 1
@@ -292,10 +305,16 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
                             new_hidden_path[hidden_state_index + 1].set_state(state)
                             # Set the value bit that has triggered the transition
                             new_hidden_path[hidden_state_index + 1].set_prob(updated_prob)
-                        print "State:", (state, hidden_state_index, p_qi_given_qprevi_ki, p_product)
-                        print "Hidden path: ", print_hidden_path(new_hidden_path)
+                        # print "State:", (state, hidden_state_index, p_qi_given_qprevi_ki, p_product)
+                        # print "Hidden path: ", print_hidden_path(new_hidden_path)
 
-                        alpha += p_product
+                        #alpha += p_product
+                        if bit_value == 0:
+                            alpha += partial_p_product * p_ki/2
+                            print alpha
+                        else:
+                            # alpha += p_product
+                            alpha += partial_p_product * p_ki * 2
 
     hidden_paths.append(new_hidden_path)
     return alpha
@@ -324,7 +343,7 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
     bayes_rule_numerator   = .0
     bayes_rule_denominator = .0
     key_bit_index = 1
-    p_kn_given_yi = .0
+    p_ki_given_yi = .0
     updated_belief = None
 
     observations_list = trace.split()
@@ -332,12 +351,14 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
     print "Observation detected:", first_observation
 
     prev_alpha = init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, first_observation)
+    beta_parm = 1.
+    p_k1_given_y1 = prev_alpha * beta_parm
+    belief[0] = p_k1_given_y1
 
     print "Alpha initialized at %f" % prev_alpha
     for path in hidden_paths:
         print "Hidden path:", print_hidden_path(path)
         print "////////////////////////////////////////////////////////////////////////////////////////////////////////"
-
     print "------------------------------------------------------------------------------------------------------------"
 
     while key_bit_index < key_length:
@@ -348,15 +369,17 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
         alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation,
                                         key_bit_index, prev_alpha)
         # print "Hidden path:", print_hidden_path(hidden_paths[key_bit_index])
-        # beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index)
-        beta_parm = 1.
-        p_kn_given_yi += alpha_parm * beta_parm
-        belief[key_bit_index] = p_kn_given_yi
+        # beta_parm = 1.
+        beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index, key_length)
+        # p_kn_given_yi += alpha_parm * beta_parm
+        p_ki_given_yi = alpha_parm * beta_parm
+        belief[key_bit_index] = p_ki_given_yi
         key_bit_index += 1
         print "********************************************************************************************************"
+        print belief
 
     #TODO MANCA LA DIVISIONE
-
+    
     # alpha_stack = []
     # beta_stack = []
     # for observation in trace:
@@ -392,25 +415,23 @@ def init_hidden_paths(key_length):
 
 
 def multitrace_inference(belief, key, transition_models, observation_model, trace_list):
+    key_bit = 0
     key_length = get_key_length(trace_list[0])
     print "Supposed key length given observations: %d" % key_length
 
     hidden_paths = init_hidden_paths(key_length)
-    print "Hidden Path:", print_hidden_path(hidden_paths[0])
-
-    key_bit = 0
-
+    # DEBUG
+    # print "Hidden Path:", print_hidden_path(hidden_paths[0])
     print "Initial belief D_0:", belief
-    print observation_model
 
     for trace in trace_list:
+        # DEBUG
         print "Trace under analysis:", trace
-        print "Bit number - %d" % key_bit
+        # print "Bit number - %d" % key_bit
         print "Belief:", belief
         belief = singletrace_inference(hidden_paths, belief, transition_models, observation_model, trace, key_bit,
                                        key_length)
-        key_bit += 0
-
+        hidden_paths = init_hidden_paths(key_length)
     return belief
 
 
