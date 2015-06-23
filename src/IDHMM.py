@@ -1,5 +1,6 @@
 __author__ = 'umanoidTyphoon'
 
+import collections
 import copy
 import numpy as np
 from numpy import matrix
@@ -39,11 +40,11 @@ class IDHMM:
         belief = multitrace_inference(self.belief, self.key, self.transition_models, self.observation_model,
                                       self.trace_list)
 
-        print "Final belief: ", belief
-
-        for key_bit in belief:
-            if key_bit > .5:
-                return 2
+        # print "Final belief: ", belief
+        #
+        # for key_bit in belief:
+        #     if key_bit > .5:
+        #         return 2
 
 
 class HiddenState:
@@ -179,7 +180,7 @@ def compute_beta_parm(belief, transition_models, observation_model, observation,
     if bit_index == key_length - 1:
         return 1
     else:
-
+        return 1
     beta = .0
     p_ynexti_given_qnexti = .0
     p_qnexti_given_qi_knexti = .0
@@ -206,7 +207,8 @@ def clear_prob(hidden_path):
         hidden_path.get(state).set_prob(.0)
 
 
-def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, observation):
+def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, counter, observation,
+                              observation_length):
     alpha = .0
     # To remain coherent as much as possible with the paper, the initial hidden state is numbered 1.
     current_hidden_state = 1
@@ -249,12 +251,14 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
                 else:
                     # alpha += p_product
                     alpha += partial_p_product * p_k1 * 2
+                alpha /= (counter[observation] / float(observation_length))
 
     hidden_paths.append(new_hidden_path)
     return alpha
 
 
-def compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation, bit_index, prev_alpha):
+def compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, counter, observation,
+                       observation_length, bit_index, prev_alpha):
     alpha = .0
     p_yi_given_qi = .0
     p_qi_given_qprevi_ki = .0
@@ -315,6 +319,7 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
                         else:
                             # alpha += p_product
                             alpha += partial_p_product * p_ki * 2
+                        alpha /= (counter[observation] / float(observation_length))
 
     hidden_paths.append(new_hidden_path)
     return alpha
@@ -339,7 +344,8 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
 
 def singletrace_inference(hidden_paths, belief, transition_models, observation_model, trace, bit, key_length):
     alpha_parm = None
-    beta_parm  = 1.
+    beta_parm  = 0.
+    beta_values = []
     bayes_rule_numerator   = .0
     bayes_rule_denominator = .0
     key_bit_index = 1
@@ -350,7 +356,11 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
     first_observation = observations_list[key_bit_index - 1]
     print "Observation detected:", first_observation
 
-    prev_alpha = init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, first_observation)
+    counter = collections.Counter(observations_list)
+    print counter[first_observation]
+
+    prev_alpha = init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, counter,
+                                           first_observation, len(observations_list))
     beta_parm = 1.
     p_k1_given_y1 = prev_alpha * beta_parm
     belief[0] = p_k1_given_y1
@@ -366,8 +376,8 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
         observation = observations_list[key_bit_index]
         print "Observation detected in the loop:", observation
 
-        alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, observation,
-                                        key_bit_index, prev_alpha)
+        alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, counter,
+                                        observation, len(observations_list), key_bit_index, prev_alpha)
         # print "Hidden path:", print_hidden_path(hidden_paths[key_bit_index])
         # beta_parm = 1.
         beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index, key_length)
@@ -379,7 +389,7 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
         print belief
 
     #TODO MANCA LA DIVISIONE
-    
+
     # alpha_stack = []
     # beta_stack = []
     # for observation in trace:
@@ -391,6 +401,38 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
     #     bayes_rule_numerator += alpha_stack.pop()
     #
     # belief[bit] = bayes_rule_numerator
+    print "Computed belief:", belief
+    print "Computed hidden path:", print_hidden_path(hidden_paths[key_length])
+
+    computed_hidden_path = hidden_paths[key_length]
+    # key_bit_index -= 1
+    next_beta = .0
+
+    while key_bit_index > 0:
+        beta_parm = .0
+        if key_bit_index == key_length:
+            beta_parm = 1.0
+            next_beta = beta_parm
+            print "Beta parm:", beta_parm
+        else:
+            current_key = computed_hidden_path.get(key_bit_index + 1).get_key_bit()
+            current_state = computed_hidden_path.get(key_bit_index + 1).get_state()
+            # first  '+ 1': the next state is returned
+            # second '+ 1': to remain coherent with the hidden path representation
+            next_state = computed_hidden_path.get(key_bit_index + 1 + 1).get_state()
+            observation = observations_list[key_bit_index]
+            p_ynexti_given_q_nexti = observation_model[IDHMM_STATES.get(next_state)].item(IDHMM_STATES.get(observation))
+            p_qnexti_given_qi_knexti = transition_models[current_key][IDHMM_STATES.get(current_state)].item(IDHMM_STATES.get(next_state))
+            p_knexti = belief[key_bit_index]
+            beta_parm += p_ynexti_given_q_nexti * next_beta * p_qnexti_given_qi_knexti * p_knexti
+        key_bit_index -= 1
+        beta_values.insert(0, beta_parm)
+
+    print "Beta parms:", beta_values
+    for index in range(len(belief)):
+        belief[index] *= beta_values[index]
+
+    print "Computed beta belief:", belief
     return belief
 
 
@@ -432,7 +474,8 @@ def multitrace_inference(belief, key, transition_models, observation_model, trac
         belief = singletrace_inference(hidden_paths, belief, transition_models, observation_model, trace, key_bit,
                                        key_length)
         hidden_paths = init_hidden_paths(key_length)
-    return belief
+
+    print "Final belief:", belief
 
 
 def print_hidden_path(hidden_path):
