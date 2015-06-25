@@ -250,7 +250,6 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
                 else:
                     # alpha += p_product
                     alpha = partial_p_product * (p_k1 + REWARD)
-                alpha /= (counter[observation] / float(observation_length))
                 if (alpha > 1.0):
                     alpha = 1.0
                 if (alpha < .0):
@@ -321,7 +320,6 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
                         else:
                             # alpha += p_product
                             alpha = partial_p_product * (p_ki + REWARD)
-                        alpha /= (counter[observation] / float(observation_length))
                         if (alpha > 1.0):
                             alpha = 1.0
                         if (alpha < .0):
@@ -348,7 +346,7 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
     # return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
 
 
-def singletrace_inference(hidden_paths, belief, transition_models, observation_model, trace, bit, key_length):
+def singletrace_inference(hidden_paths, belief, transition_models, observation_model, counter, trace, bit, key_length):
     alpha_parm = None
     beta_parm  = 0.
     beta_values = []
@@ -361,9 +359,6 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
     observations_list = trace.split()
     first_observation = observations_list[key_bit_index - 1]
     print "Observation detected:", first_observation
-
-    counter = collections.Counter(observations_list)
-#    print counter[first_observation]
 
     prev_alpha = init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, counter,
                                            first_observation, len(observations_list))
@@ -443,7 +438,9 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
 
     for index in range(len(belief)):
         updated_belief[index] *= beta_values[index]
+        updated_belief[index] /= (float(counter[trace]) / float(key_length))
 
+    print float(counter[trace]) / float(key_length)
     print "Computed beta belief:", updated_belief
     return updated_belief
 
@@ -473,6 +470,7 @@ def multitrace_inference(belief, key, transition_models, observation_model, trac
     key_length = get_key_length(trace_list[0])
     print "Supposed key length given observations: %d" % key_length
 
+    counter = collections.Counter(trace_list)
     hidden_paths = init_hidden_paths(key_length)
     # DEBUG
     # print "Hidden Path:", print_hidden_path(hidden_paths[0])
@@ -483,7 +481,7 @@ def multitrace_inference(belief, key, transition_models, observation_model, trac
         print "Trace under analysis:", trace
         # print "Bit number - %d" % key_bit
         print "Belief:", belief
-        belief = singletrace_inference(hidden_paths, belief, transition_models, observation_model, trace, key_bit,
+        belief = singletrace_inference(hidden_paths, belief, transition_models, observation_model, counter, trace, key_bit,
                                        key_length)
         hidden_paths = init_hidden_paths(key_length)
 
