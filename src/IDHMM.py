@@ -15,6 +15,7 @@ IDHMM_IDS    = {0: 'D', 1: 'AD'}
 IDHMM_STATES = {'D': 0, 'AD': 1}
 #IDHMM_STATES = {'D': 0, 'AD': 1, 'RAD': 2}
 
+REWARD = .05
 
 class IDHMM:
     def __init__(self, key="0", trace_list=[]):
@@ -245,11 +246,15 @@ def init_alpha_parm_recursion(hidden_paths, belief, observation_model, transitio
                 # print "Bit value: %d" % bit_value
                 # print "Hidden path: ", print_hidden_path(new_hidden_path)
                 if bit_value == 0:
-                    alpha = partial_p_product * (1.0 - p_k1)
+                    alpha = partial_p_product * (p_k1 - REWARD)
                 else:
                     # alpha += p_product
-                    alpha = partial_p_product * p_k1
-#                alpha /= (counter[observation] / float(observation_length))
+                    alpha = partial_p_product * (p_k1 + REWARD)
+                alpha /= (counter[observation] / float(observation_length))
+                if (alpha > 1.0):
+                    alpha = 1.0
+                if (alpha < .0):
+                    alpha = .0
 
     hidden_paths.append(new_hidden_path)
     return alpha
@@ -312,11 +317,15 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
 
                         #alpha += p_product
                         if bit_value == 0:
-                            alpha = partial_p_product * (1.0 - p_ki)
+                            alpha = partial_p_product * (p_ki + REWARD)
                         else:
                             # alpha += p_product
-                            alpha = partial_p_product * p_ki
-#                        alpha /= (counter[observation] / float(observation_length))
+                            alpha = partial_p_product * (p_ki + REWARD)
+                        alpha /= (counter[observation] / float(observation_length))
+                        if (alpha > 1.0):
+                            alpha = 1.0
+                        if (alpha < .0):
+                            alpha = .0
 
     hidden_paths.append(new_hidden_path)
     return alpha
@@ -422,7 +431,10 @@ def singletrace_inference(hidden_paths, belief, transition_models, observation_m
             observation = observations_list[key_bit_index]
             p_ynexti_given_q_nexti = observation_model[IDHMM_STATES.get(next_state)].item(IDHMM_STATES.get(observation))
             p_qnexti_given_qi_knexti = transition_models[current_key][IDHMM_STATES.get(current_state)].item(IDHMM_STATES.get(next_state))
-            p_knexti = belief[key_bit_index + 1]
+            if current_key == 0:
+                p_knexti = belief[key_bit_index] - REWARD
+            else:
+                p_knexti = belief[key_bit_index] + REWARD
             beta_parm += p_ynexti_given_q_nexti * next_beta * p_qnexti_given_qi_knexti * p_knexti
         key_bit_index -= 1
         beta_values.insert(0, beta_parm)
