@@ -17,12 +17,14 @@ IDHMM_STATES = {'D': 0, 'AD': 1}
 
 REWARD = .05
 
+
 class IDHMM:
     def __init__(self, key="0", trace_list=[]):
         self.key = key
         self.trace_list = trace_list
 
         self.belief = init_belief(self.key)
+        self.init_state_distribution = init_state_distribution()
 
         # ---------------------------------------------- CORRECTNESS TEST ----------------------------------------------
 
@@ -38,8 +40,8 @@ class IDHMM:
         return self.observation_model
 
     def infer(self):
-        belief = multitrace_inference(self.belief, self.key, self.transition_models, self.observation_model,
-                                      self.trace_list)
+        belief = multi_trace_inference(self.belief, self.init_state_distribution, self.key, self.transition_models,
+                                       self.observation_model, self.trace_list)
 
         # print "Final belief: ", belief
         #
@@ -76,12 +78,26 @@ class HiddenState:
         # return "'" + self.state + "' is the current state with probability " + str(self.prob) + "."
         return "<'" + self.state + "', " + str(self.key_bit) + ", " + str(self.prob) + ">"
 
+
 def init_belief(key):
     key_length = len(key)
-    belief = np.empty(key_length)
+    belief = np.zeros((1, key_length))
     belief.fill(.5)
 
     return belief
+
+
+def init_state_distribution():
+    encoded_states = IDHMM_IDS.keys()
+    state_probability_distribution = np.zeros((1, len(encoded_states)))
+
+    for state in encoded_states:
+        if state == 0:
+            state_probability_distribution[0, state] = 1.0
+        else:
+            state_probability_distribution[0, state] = 0.0
+
+    return state_probability_distribution
 
 
 def init_observation_model():
@@ -174,6 +190,41 @@ def init_transition_models_test():
     models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
     return models
 
+
+def get_ith_observation_matrix(observation_model, observation):
+    ith_column = observation_model[:, IDHMM_STATES.get(observation)]
+    ith_observation_matrix = copy.deepcopy(observation_model)
+
+    for (i,j), value in np.ndenumerate(ith_observation_matrix):
+        if i == j:
+            ith_observation_matrix[i,j] = ith_column[i].item()
+        else:
+            ith_observation_matrix[i,j] = .0
+
+    return ith_observation_matrix
+
+
+def is_zero(forward_prob):
+    is_zero = 1
+
+    for (i,j), value in np.ndenumerate(forward_prob):
+        if value != .0:
+            is_zero = 0
+
+    return is_zero
+
+
+def normalize(forward_prob, normalization_coefficients, traceID):
+    normalization_factor = .0
+
+    for (i,j), value in np.ndenumerate(forward_prob):
+        normalization_factor += forward_prob[i,j]
+    normalization_coefficients[0,traceID] = normalization_factor
+
+    for (i,j), value in np.ndenumerate(forward_prob):
+        forward_prob[i,j] = value / normalization_factor
+
+    return forward_prob
 
 def compute_beta_parm(belief, transition_models, observation_model, observation, bit_index, key_length):
 
@@ -346,104 +397,46 @@ def compute_alpha_parm(hidden_paths, belief, transition_models, observation_mode
     # return p_yi_given_q_i * p_qi_given_qprev_key_bit * p_ki
 
 
-def singletrace_inference(hidden_paths, belief, transition_models, observation_model, counter, trace, bit, key_length):
-    alpha_parm = None
-    beta_parm  = 0.
-    beta_values = []
-    bayes_rule_numerator   = .0
-    bayes_rule_denominator = .0
-    key_bit_index = 1
-    p_ki_given_yi = .0
-    updated_belief = np.empty(key_length)
+def single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model, counter,
+                           trace, bit, key_length):
+    traceID = 0
 
     observations_list = trace.split()
-    first_observation = observations_list[key_bit_index - 1]
-    print "Observation detected:", first_observation
+    norm_coefficients = np.ones((1, len(observations_list)))
 
-    prev_alpha = init_alpha_parm_recursion(hidden_paths, belief, observation_model, transition_models, counter,
-                                           first_observation, len(observations_list))
-    beta_parm = 1.
-    p_k1_given_y1 = prev_alpha * beta_parm
-    updated_belief[0] = p_k1_given_y1
+    for observation in observations_list:
+        for key_bit_value in range(2):
+            Oi = get_ith_observation_matrix(observation_model, observation)
+            beta_T = state_distribution * transition_models[key_bit_value]
+            for (i,j), value in np.ndenumerate(beta_T):
+                beta_T[i,j] = value * belief[0,traceID]
+            forward_prob = beta_T * Oi
+            if is_zero(forward_prob) == 1:
+                continue
+            forward_prob = normalize(forward_prob, norm_coefficients, traceID)
 
-    print "Alpha initialized at %f" % prev_alpha
-    for path in hidden_paths:
-        print "Hidden path:", print_hidden_path(path)
-        print "////////////////////////////////////////////////////////////////////////////////////////////////////////"
-    print "------------------------------------------------------------------------------------------------------------"
+            print "Forward probability vector:", forward_prob
 
-    while key_bit_index < key_length:
-        #while key_bit_index <= key_length:
-        observation = observations_list[key_bit_index]
-        print "Observation detected in the loop:", observation
+        traceID += 1
 
-        alpha_parm = compute_alpha_parm(hidden_paths, belief, transition_models, observation_model, counter,
-                                        observation, len(observations_list), key_bit_index, prev_alpha)
-        # print "Hidden path:", print_hidden_path(hidden_paths[key_bit_index])
-        # beta_parm = 1.
-        # beta_parm  = compute_beta_parm(belief, transition_models, observation_model, observation, key_bit_index, key_length)
-        # p_kn_given_yi += alpha_parm * beta_parm
-        p_ki_given_yi = alpha_parm * beta_parm
-        updated_belief[key_bit_index] = p_ki_given_yi
-        key_bit_index += 1
-        print "********************************************************************************************************"
-        print belief
-        print updated_belief
+    traceID = 0
+    backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
 
-    #TODO MANCA LA DIVISIONE
+    for observation in observations_list:
+        for key_bit_value in range(2):
+            Oi = get_ith_observation_matrix(observation_model, observation)
+            backward_prob = transition_models[key_bit_value] * Oi * backward_probability_vector
 
-    # alpha_stack = []
-    # beta_stack = []
-    # for observation in trace:
-    #     alpha_parm = compute_alpha_parm(belief, transition_models, observation_model, bit)
-    #     print "Alpha parameter computed: ", alpha_parm
-    #     alpha_stack.append(alpha_parm)
-    #
-    # while alpha_stack:
-    #     bayes_rule_numerator += alpha_stack.pop()
-    #
-    # belief[bit] = bayes_rule_numerator
-    print "Computed belief:", belief
-    print "Computed updated belief:", updated_belief
-    print "Computed hidden path:", print_hidden_path(hidden_paths[key_length])
+            if is_zero(backward_prob) == 1:
+                continue
+            for (i,j), value in np.ndenumerate(backward_prob):
+                 backward_prob[i,j] = value / norm_coefficients[0,traceID]
 
-    computed_hidden_path = hidden_paths[key_length]
-    key_bit_index -= 1
-    next_beta = .0
+            print "Backward probability vector:", backward_prob
 
-    while key_bit_index >= 0:
-        beta_parm = .0
-        if key_bit_index == key_length - 1:
-            beta_parm = 1.0
-            next_beta = beta_parm
-            print "Beta parm:", beta_parm
-        else:
-            current_key = computed_hidden_path.get(key_bit_index + 1).get_key_bit()
-            current_state = computed_hidden_path.get(key_bit_index + 1).get_state()
-            # first  '+ 1': the next state is returned
-            # second '+ 1': to remain coherent with the hidden path representation
-            next_state = computed_hidden_path.get(key_bit_index + 1 + 1).get_state()
-            observation = observations_list[key_bit_index]
-            p_ynexti_given_q_nexti = observation_model[IDHMM_STATES.get(next_state)].item(IDHMM_STATES.get(observation))
-            p_qnexti_given_qi_knexti = transition_models[current_key][IDHMM_STATES.get(current_state)].item(IDHMM_STATES.get(next_state))
-            if current_key == 0:
-                p_knexti = belief[key_bit_index] - REWARD
-            else:
-                p_knexti = belief[key_bit_index] + REWARD
-            beta_parm += p_ynexti_given_q_nexti * next_beta * p_qnexti_given_qi_knexti * p_knexti
-        key_bit_index -= 1
-        beta_values.insert(0, beta_parm)
+        traceID += 1
 
-    print "Beta parms:", beta_values
-
-    for index in range(len(belief)):
-        updated_belief[index] *= beta_values[index]
-        updated_belief[index] /= (float(counter[trace]) / float(key_length))
-
-    print float(counter[trace]) / float(key_length)
-    print "Computed beta belief:", updated_belief
-    return updated_belief
-
+    # todo Compute alpha * beta
 
 def get_key_length(observations_string):
     observations_list = observations_string.split()
@@ -465,7 +458,7 @@ def init_hidden_paths(key_length):
     return hidden_paths
 
 
-def multitrace_inference(belief, key, transition_models, observation_model, trace_list):
+def multi_trace_inference(belief, state_distribution, key, transition_models, observation_model, trace_list):
     key_bit = 0
     key_length = get_key_length(trace_list[0])
     print "Supposed key length given observations: %d" % key_length
@@ -475,14 +468,15 @@ def multitrace_inference(belief, key, transition_models, observation_model, trac
     # DEBUG
     # print "Hidden Path:", print_hidden_path(hidden_paths[0])
     print "Initial belief D_0:", belief
+    print "Initial state ditstribution S_0:", state_distribution
 
     for trace in trace_list:
         # DEBUG
         print "Trace under analysis:", trace
         # print "Bit number - %d" % key_bit
         print "Belief:", belief
-        belief = singletrace_inference(hidden_paths, belief, transition_models, observation_model, counter, trace, key_bit,
-                                       key_length)
+        belief = single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model,
+                                        counter, trace, key_bit, key_length)
         hidden_paths = init_hidden_paths(key_length)
 
     print "Final belief:", belief
