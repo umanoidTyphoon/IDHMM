@@ -15,6 +15,6 @@ from src.IDHMM import IDHMM
 #idhmm = IDHMM("01", ["D AD", "D AD", "D AD", "D AD", "D AD", "D AD", "D AD", "D AD"])
 
 idhmm = IDHMM("01", ["D AD", "D AD", "D AD"])
-idhmm = IDHMM("010", ["D AD D", "D AD D", "D AD D"])
+#idhmm = IDHMM("010", ["D AD D", "D AD D", "D AD D"])
 
 idhmm.infer()

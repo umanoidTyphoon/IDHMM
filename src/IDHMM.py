@@ -2,6 +2,7 @@ __author__ = 'umanoidTyphoon'
 
 import collections
 import copy
+import math
 import numpy as np
 from numpy import matrix
 
@@ -40,15 +41,19 @@ class IDHMM:
         return self.observation_model
 
     def infer(self):
+        guessed_key = ""
         belief = multi_trace_inference(self.belief, self.init_state_distribution, self.key, self.transition_models,
                                        self.observation_model, self.trace_list)
 
-        # print "Final belief: ", belief
-        #
-        # for key_bit in belief:
-        #     if key_bit > .5:
-        #         return 2
+        print "Final belief: ", belief
+        for (i,j), value in np.ndenumerate(belief):
+            if value > .5:
+                guessed_key += "1"
+            else:
+                    guessed_key += "0"
+        print "Guessed key:", guessed_key
 
+        return guessed_key
 
 class HiddenState:
     def __init__(self, state, key_bit, prob):
@@ -218,7 +223,9 @@ def normalize(forward_prob, normalization_coefficients, traceID):
     normalization_factor = .0
 
     for (i,j), value in np.ndenumerate(forward_prob):
-        normalization_factor += forward_prob[i,j]
+        normalization_factor += math.fabs(forward_prob[i,j])
+    if normalization_factor == .0:
+        normalization_factor = 1.
     normalization_coefficients[0,traceID] = normalization_factor
 
     for (i,j), value in np.ndenumerate(forward_prob):
@@ -401,42 +408,106 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                            trace, bit, key_length):
     traceID = 0
 
+    backward_probability_vectors = []
+    forward_probability_vectors = []
+    gamma_probability_vectors = []
     observations_list = trace.split()
     norm_coefficients = np.ones((1, len(observations_list)))
+    skip_dictionary = dict()
 
     for observation in observations_list:
         for key_bit_value in range(2):
             Oi = get_ith_observation_matrix(observation_model, observation)
-            beta_T = state_distribution * transition_models[key_bit_value]
-            for (i,j), value in np.ndenumerate(beta_T):
-                beta_T[i,j] = value * belief[0,traceID]
-            forward_prob = beta_T * Oi
+            alpha_T = state_distribution * transition_models[key_bit_value]
+            forward_prob = alpha_T * Oi
             if is_zero(forward_prob) == 1:
+                skip_list = skip_dictionary.get(observation)
+                if skip_list is None:
+                    skip_dictionary[observation] = [key_bit_value]
+                else:
+                    skip_list.append(key_bit_value)
                 continue
-            forward_prob = normalize(forward_prob, norm_coefficients, traceID)
+            if key_bit_value == 0:
+                for (i,j), value in np.ndenumerate(forward_prob):
+                    forward_prob[i,j] = value * belief[0,traceID] * (-1)
+            else:
+                for (i,j), value in np.ndenumerate(forward_prob):
+                    forward_prob[i,j] = value * belief[0,traceID]
 
-            print "Forward probability vector:", forward_prob
+            forward_prob = normalize(forward_prob, norm_coefficients, traceID)
+            forward_probability_vectors.append(forward_prob)
+
+            # print "Forward probability vector:", forward_prob
 
         traceID += 1
+        print skip_dictionary
+
+    print "Forward probability vectors:", forward_probability_vectors
+    print "Normalization coefficient vector:", norm_coefficients
 
     traceID = 0
     backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
 
-    for observation in observations_list:
+    for observation in reversed(observations_list):
         for key_bit_value in range(2):
-            Oi = get_ith_observation_matrix(observation_model, observation)
-            backward_prob = transition_models[key_bit_value] * Oi * backward_probability_vector
+            skip_list = skip_dictionary.get(observation)
+            if skip_list is not None and not skip_list.__contains__(key_bit_value):
+                Oi = get_ith_observation_matrix(observation_model, observation)
+                beta_T = copy.deepcopy(transition_models[key_bit_value])
+                if key_bit_value == 0:
+                    for (i,j), value in np.ndenumerate(beta_T):
+                        beta_T[i,j] = value * belief[0,traceID] * -1
+                else:
+                    for (i,j), value in np.ndenumerate(beta_T):
+                        beta_T[i,j] = value * belief[0,traceID]
+                backward_prob = beta_T * Oi * backward_probability_vector
 
-            if is_zero(backward_prob) == 1:
-                continue
-            for (i,j), value in np.ndenumerate(backward_prob):
-                 backward_prob[i,j] = value / norm_coefficients[0,traceID]
+                for (i,j), value in np.ndenumerate(backward_prob):
+                    backward_prob[i,j] = value / norm_coefficients[0,traceID]
 
-            print "Backward probability vector:", backward_prob
+                backward_probability_vectors.insert(0, np.transpose(backward_prob))
+                # print "Backward probability vector:", backward_prob
 
         traceID += 1
 
-    # todo Compute alpha * beta
+    print "Backward probability vectors:", backward_probability_vectors
+
+    vector_sizes = forward_probability_vectors[0].size
+
+    for forward_vector,backward_vector in zip(forward_probability_vectors,backward_probability_vectors):
+        gamma_vector = np.ones((1, vector_sizes))
+        for (i,j), value in np.ndenumerate(gamma_vector):
+            forward_component = forward_vector[i,j]
+            backward_component = backward_vector[i,j]
+
+            if forward_component < 0 and backward_component < 0:
+                gamma_vector[i,j] *= -1
+
+            gamma_vector[i,j] *= forward_component * backward_component
+
+        gamma_vector = normalize(gamma_vector, norm_coefficients, 0)
+        gamma_probability_vectors.append(gamma_vector)
+
+    print "Gamma probability vectors:", gamma_probability_vectors
+
+    # TODO Dividere per p(Y)!!!
+
+    iteration = 0
+    print belief
+    for gamma_vector in gamma_probability_vectors:
+        for (i,j), value in np.ndenumerate(gamma_vector):
+            if gamma_vector[i,j] == .0:
+                continue
+            else:
+                if gamma_vector[i,j] < 0:
+                    belief[0,iteration] = .0
+                else:
+                    belief[0,iteration] = gamma_vector[i,j]
+        iteration += 1
+
+    print belief
+    return belief
+
 
 def get_key_length(observations_string):
     observations_list = observations_string.split()
@@ -468,7 +539,7 @@ def multi_trace_inference(belief, state_distribution, key, transition_models, ob
     # DEBUG
     # print "Hidden Path:", print_hidden_path(hidden_paths[0])
     print "Initial belief D_0:", belief
-    print "Initial state ditstribution S_0:", state_distribution
+    print "Initial state distribution S_0:", state_distribution
 
     for trace in trace_list:
         # DEBUG
@@ -480,6 +551,7 @@ def multi_trace_inference(belief, state_distribution, key, transition_models, ob
         hidden_paths = init_hidden_paths(key_length)
 
     print "Final belief:", belief
+    return belief
 
 
 def print_hidden_path(hidden_path):
