@@ -37,6 +37,10 @@ class IDHMM:
         #self.observation_model = init_observation_model()
         #self.transition_models = init_transition_models()
 
+    # TODO Delete it!! Inserted for debugging purposes
+    def get_key(self):
+        return self.key
+
     def get_observation_model(self):
         return self.observation_model
 
