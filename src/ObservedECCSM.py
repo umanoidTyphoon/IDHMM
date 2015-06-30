@@ -35,8 +35,9 @@ class ObservedECCScalarMultiplication(Algorithm):
                 p += ecc_q
                 # Observation performed
                 self.obs.append("AD")
+            else:
+                self.obs.append("D")
             ecc_q = 2 * ecc_q
-            self.obs.append("D")
         return p
 
     def __str__(self):
@@ -70,11 +71,12 @@ class ObservedRandomizedECCScalarMultiplication(Algorithm):
                 if random_bit == 1:
                     r += ecc_q
                     self.obs.append("AD")
+                else:
+                    self.obs.append("D")
             else:
                 p += ecc_q
                 self.obs.append("AD")
             ecc_q = 2 * ecc_q
-            self.obs.append("D")
         return p
 
     def __str__(self):
