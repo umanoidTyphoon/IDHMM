@@ -6,7 +6,7 @@ from src.TraceGen import TraceGen
 
 import random
 
-KEY_LENGTHS = 10
+KEY_LENGTHS = 3
 RANDOM_KEYS_TO_BE_TESTED = 15
 MAX_TRACES_TO_BE_GENERATED = 30
 
@@ -25,6 +25,7 @@ def test_correctness(idhmm):
     print "\n\n********************************************************************************************************"
 
     return correctly_guessed
+
 
 # idhmm = IDHMM("0101", ["D AD D AD", "D AD D AD", "D AD D AD", "D AD D AD"])
 # test_correctness(idhmm)
@@ -65,24 +66,30 @@ def test_correctness(idhmm):
 print "------------------------------------------------------------------------------------------------------------\n\n"
 print "\n\n------------------------------------------------------------------------------------------------------------"
 
-guessed_passwords = 0
+# guessed_passwords = 0
+#
+# for i in range(RANDOM_KEYS_TO_BE_TESTED):
+#     keygen = KeyGen(KEY_LENGTHS)
+#     random_binary_strings = keygen.run()
+#     random_traces = random.SystemRandom().randint(1, MAX_TRACES_TO_BE_GENERATED)
+#
+#     print random_binary_strings
+#     print random_traces
+#
+#     trace_gen = TraceGen(random_binary_strings, random_traces)
+#     traces = trace_gen.generate()
+#
+#     print traces
+#     print len(traces)
+#
+#     idhmm = IDHMM(random_binary_strings, traces)
+#     guessed = test_correctness(idhmm)
+#     guessed_passwords += guessed
+#
+# print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
+# print "\n\n--------------------------------------------------------------------------------------------------------"
 
-for i in range(RANDOM_KEYS_TO_BE_TESTED):
-    keygen = KeyGen(KEY_LENGTHS)
-    random_binary_strings = keygen.run()
-    random_traces = random.SystemRandom().randint(1, MAX_TRACES_TO_BE_GENERATED)
+idhmm = IDHMM("01", ['D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ',
+                      'D D AD ', 'D D AD '])
 
-    print random_binary_strings
-    print random_traces
-
-    trace_gen = TraceGen(random_binary_strings, random_traces)
-    traces = trace_gen.generate()
-
-    print traces
-    print len(traces)
-
-    idhmm = IDHMM(random_binary_strings, traces)
-    guessed = test_correctness(idhmm)
-    guessed_passwords += guessed
-    print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
-    print "\n\n--------------------------------------------------------------------------------------------------------"
+test_correctness(idhmm)

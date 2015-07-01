@@ -14,12 +14,12 @@ AD = 1
 RAD = 2
 
 # States used for testing the correctness
-IDHMM_STATES = {'D': 0, 'AD': 1}
+# IDHMM_STATES = {'D': 0, 'AD': 1}
 
 # Input Driven Hidden Markov Model identifiers associated to the hidden states
-IDHMM_IDS = {0: 'D', 1: 'AD'}
+IDHMM_IDS = {0: 'D', 1: 'AD', 2: 'RAD'}
 # Input Driven Hidden Markov Model states associated to their identifiers
-# IDHMM_STATES = {'D': 0, 'AD': 1, 'RAD': 2}
+IDHMM_STATES = {'D': 0, 'AD': 1, 'RAD': 2}
 
 
 class IDHMM:
@@ -32,10 +32,10 @@ class IDHMM:
         self.transition_models = init_transition_models()
 
         # ---------------------------------------------- CORRECTNESS TEST ----------------------------------------------
-
-        self.observation_model = init_observation_model_test()
-        self.transition_models = init_transition_models_test()
-
+        #
+        # self.observation_model = init_observation_model_test()
+        # self.transition_models = init_transition_models_test()
+        #
         # ########################################### END CORRECTNESS TEST #############################################
 
     # TODO Delete it!! Inserted for debugging purposes
@@ -288,7 +288,7 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
             forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
             forward_probability_vectors.append(forward_prob)
 
-            # print "Forward probability vector:", forward_prob
+            print "Forward probability vector:", forward_prob
 
         # Observation in the trace
         observation_ID += 1
@@ -322,7 +322,7 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                     backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
 
                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
-                # print "Backward probability vector:", backward_prob
+                print "Backward probability vector:", backward_prob
 
         observation_ID += 1
 
