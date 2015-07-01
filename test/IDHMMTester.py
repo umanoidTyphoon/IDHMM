@@ -81,7 +81,8 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     print traces
     print len(traces)
 
-    idhmm = IDHMM(random_binary_strings, traces)
+    # idhmm = IDHMM(random_binary_strings, traces)
+    idhmm = IDHMM("1110111000", ['AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D ', 'AD AD AD D AD AD AD D D D '])
     guessed = test_correctness(idhmm)
     guessed_passwords += guessed
     print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)

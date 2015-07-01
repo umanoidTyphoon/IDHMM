@@ -330,12 +330,12 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
 
                 print "Backward probability vector:", backward_prob
-                print "State distribution before updating:", backward_probability_vector
-                # State distribution update
-                backward_probability_vector = copy.deepcopy(backward_prob)
-                for (i,j), value in np.ndenumerate(backward_probability_vector):
-                    backward_probability_vector[i,j] = math.fabs(value)
-                print "State distribution after updating:", backward_probability_vector
+                # print "State distribution before updating:", backward_probability_vector
+                # # State distribution update
+                # backward_probability_vector = copy.deepcopy(backward_prob)
+                # for (i,j), value in np.ndenumerate(backward_probability_vector):
+                #     backward_probability_vector[i,j] = math.fabs(value)
+                # print "State distribution after updating:", backward_probability_vector
 
         observation_ID += 1
 
