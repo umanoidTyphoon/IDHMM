@@ -202,13 +202,11 @@ def init_transition_models_test():
 
 def get_ith_observation_matrix(observation_model, observation):
     ith_column = observation_model[:, IDHMM_STATES.get(observation)]
-    ith_observation_matrix = copy.deepcopy(observation_model)
+    ith_observation_matrix = np.zeros(shape=(ith_column.size,ith_column.size))
 
     for (i,j), value in np.ndenumerate(ith_observation_matrix):
         if i == j:
             ith_observation_matrix[i,j] = ith_column[i].item()
-        else:
-            ith_observation_matrix[i,j] = .0
 
     return ith_observation_matrix
 

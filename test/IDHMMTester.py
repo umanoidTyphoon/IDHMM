@@ -12,13 +12,19 @@ MAX_TRACES_TO_BE_GENERATED = 30
 
 
 def test_correctness(idhmm):
+    correctly_guessed = 0
+
     guessed_key = idhmm.infer()
     print "********************************************************************************************************\n\n"
     if guessed_key == idhmm.get_key():
+        correctly_guessed = 1
         print "TEST PASSED: KEY CORRECTLY GUESSED!\nThe key given in input was", idhmm.get_key()
     else:
+        correctly_guessed = 0
         print "TEST FAILED: KEY NOT GUESSED!\nThe key given in input was", idhmm.get_key()
     print "\n\n********************************************************************************************************"
+
+    return correctly_guessed
 
 # idhmm = IDHMM("0101", ["D AD D AD", "D AD D AD", "D AD D AD", "D AD D AD"])
 # test_correctness(idhmm)
@@ -59,6 +65,8 @@ def test_correctness(idhmm):
 print "------------------------------------------------------------------------------------------------------------\n\n"
 print "\n\n------------------------------------------------------------------------------------------------------------"
 
+guessed_passwords = 0
+
 for i in range(RANDOM_KEYS_TO_BE_TESTED):
     keygen = KeyGen(KEY_LENGTHS)
     random_binary_strings = keygen.run()
@@ -74,4 +82,7 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     print len(traces)
 
     idhmm = IDHMM(random_binary_strings, traces)
-    test_correctness(idhmm)
+    guessed = test_correctness(idhmm)
+    guessed_passwords += guessed
+    print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
+    print "\n\n--------------------------------------------------------------------------------------------------------"
