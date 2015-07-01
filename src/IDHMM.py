@@ -47,7 +47,7 @@ class IDHMM:
 
     def infer(self):
         guessed_key = ""
-        belief = multi_trace_inference(self.belief, self.init_state_distribution, self.key, self.transition_models,
+        belief = multi_trace_inference(self.belief, self.init_state_distribution, self.transition_models,
                                        self.observation_model, self.trace_list)
 
         print "Final belief: ", belief
@@ -203,9 +203,8 @@ def init_transition_models_test():
 def get_ith_observation_matrix(observation_model, observation):
     ith_column = observation_model[:, IDHMM_STATES.get(observation)]
     ith_observation_matrix = copy.deepcopy(observation_model)
-    ith_matrix_iterator = np.ndenumerate(ith_observation_matrix)
 
-    for (i,j), value in ith_matrix_iterator:
+    for (i,j), value in np.ndenumerate(ith_observation_matrix):
         if i == j:
             ith_observation_matrix[i,j] = ith_column[i].item()
         else:
@@ -216,24 +215,22 @@ def get_ith_observation_matrix(observation_model, observation):
 
 def is_zero(prob_vector):
     is_zero = 1
-    prob_vector_iterator = np.ndenumerate(prob_vector)
 
-    for (i,j), value in prob_vector_iterator:
+    for (i,j), value in np.ndenumerate(prob_vector):
         if value != .0:
             is_zero = 0
 
     return is_zero
 
 
-def normalize_and_store_coefficient(prob_vector, normalization_coefficients, traceID):
+def normalize_and_store_coefficient(prob_vector, normalization_coefficients, observation_ID):
     normalization_factor = .0
-    prob_vector_iterator = np.ndenumerate(prob_vector)
 
-    for (i,j), value in prob_vector_iterator:
+    for (i,j), value in np.ndenumerate(prob_vector):
         normalization_factor += math.fabs(prob_vector[i,j])
     if normalization_factor == .0:
         normalization_factor = 1.
-    normalization_coefficients[0,traceID] = normalization_factor
+    normalization_coefficients[0,observation_ID] = normalization_factor
 
     for (i,j), value in np.ndenumerate(prob_vector):
         prob_vector[i,j] = value / normalization_factor
@@ -243,9 +240,8 @@ def normalize_and_store_coefficient(prob_vector, normalization_coefficients, tra
 
 def normalize(prob_vector):
     normalization_factor = .0
-    prob_vector_iterator = np.ndenumerate(prob_vector)
 
-    for (i,j), value in prob_vector_iterator:
+    for (i,j), value in np.ndenumerate(prob_vector):
         normalization_factor += math.fabs(prob_vector[i,j])
     if normalization_factor == .0:
         normalization_factor = 1.
@@ -255,21 +251,24 @@ def normalize(prob_vector):
     return prob_vector
 
 
-def single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model, counter,
-                           trace, bit, key_length):
+def single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model, trace):
     backward_probability_vectors = []
     forward_probability_vectors = []
     gamma_probability_vectors = []
     observations_list = trace.split()
     skip_dictionary = dict()
-    traceID = 0
+    observation_ID = 0
 
+    # Forward step
     norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
         for key_bit_value in range(2):
             Oi = get_ith_observation_matrix(observation_model, observation)
             alpha_T = state_distribution * transition_models[key_bit_value]
             forward_prob = alpha_T * Oi
+            # The skip dictionary tracks the <key,value> pairs, which represents the transitions having 0 probabilities
+            # to occur, given the observation. This skip dictionary is queried in the backward step, to avoid unuseful
+            # iterations
             if is_zero(forward_prob) == 1:
                 skip_list = skip_dictionary.get(observation)
                 if skip_list is None:
@@ -279,23 +278,29 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                 continue
             if key_bit_value == 0:
                 for (i,j), value in np.ndenumerate(forward_prob):
-                    forward_prob[i,j] = value * belief[0,traceID] * (-1)
+                    # Negative values map probabilities related to forward probabilities obtained using the bit 0
+                    forward_prob[i,j] = value * belief[0,observation_ID] * (-1)
             else:
                 for (i,j), value in np.ndenumerate(forward_prob):
-                    forward_prob[i,j] = value * belief[0,traceID]
+                    # Positive values map probabilities related to forward probabilities obtained using the bit 1
+                    forward_prob[i,j] = value * belief[0,observation_ID]
 
-            forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, traceID)
+            # The forward probabilities are normalized and the normalization coefficient are stored for being used in
+            # the backward step
+            forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
             forward_probability_vectors.append(forward_prob)
 
             # print "Forward probability vector:", forward_prob
 
-        traceID += 1
+        # Observation in the trace
+        observation_ID += 1
         print skip_dictionary
 
     print "Forward probability vectors:", forward_probability_vectors
     print "Normalization coefficient vector:", norm_coefficients
 
-    traceID = 0
+    # Backward step
+    observation_ID = 0
     backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
 
     for observation in reversed(observations_list):
@@ -306,19 +311,22 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                 beta_T = copy.deepcopy(transition_models[key_bit_value])
                 if key_bit_value == 0:
                     for (i,j), value in np.ndenumerate(beta_T):
-                        beta_T[i,j] = value * belief[0,traceID] * -1
+                        # Negative values map probabilities related to backward probabilities obtained using the bit 0
+                        beta_T[i,j] = value * belief[0,observation_ID] * -1
                 else:
                     for (i,j), value in np.ndenumerate(beta_T):
-                        beta_T[i,j] = value * belief[0,traceID]
+                        # Positive values map probabilities related to backward probabilities obtained using the bit 1
+                        beta_T[i,j] = value * belief[0,observation_ID]
                 backward_prob = beta_T * Oi * backward_probability_vector
 
+                # Normalization is performed using the coefficient obtained in the forward step
                 for (i,j), value in np.ndenumerate(backward_prob):
-                    backward_prob[i,j] = value / norm_coefficients[0,traceID]
+                    backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
 
                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
                 # print "Backward probability vector:", backward_prob
 
-        traceID += 1
+        observation_ID += 1
 
     print "Backward probability vectors:", backward_probability_vectors
 
@@ -329,21 +337,22 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
         for (i,j), value in np.ndenumerate(gamma_vector):
             forward_component = forward_vector[i,j]
             backward_component = backward_vector[i,j]
-
+            # Negative values map probabilities related to gamma probabilities
             if forward_component < 0 and backward_component < 0:
                 gamma_vector[i,j] *= -1
 
             gamma_vector[i,j] *= forward_component * backward_component
 
+        # The forward probabilities are normalized
         gamma_vector = normalize(gamma_vector)
         gamma_probability_vectors.append(gamma_vector)
 
     print "Gamma probability vectors:", gamma_probability_vectors
 
-    # TODO Dividere per p(Y)!!!
-
+    # TODO Gamma probabilities need to be divided by P(Y=y)
     iteration = 0
     print belief
+    # Update belief process
     for gamma_vector in gamma_probability_vectors:
         for (i,j), value in np.ndenumerate(gamma_vector):
             if gamma_vector[i,j] == .0:
@@ -379,8 +388,7 @@ def init_hidden_paths(key_length):
     return hidden_paths
 
 
-def multi_trace_inference(belief, state_distribution, key, transition_models, observation_model, trace_list):
-    key_bit = 0
+def multi_trace_inference(belief, state_distribution, transition_models, observation_model, trace_list):
     key_length = get_key_length(trace_list[0])
     print "Supposed key length given observations: %d" % key_length
 
@@ -397,7 +405,7 @@ def multi_trace_inference(belief, state_distribution, key, transition_models, ob
         # print "Bit number - %d" % key_bit
         print "Belief:", belief
         belief = single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model,
-                                        counter, trace, key_bit, key_length)
+                                        trace)
         hidden_paths = init_hidden_paths(key_length)
 
     print "Final belief:", belief

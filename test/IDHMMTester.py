@@ -62,7 +62,7 @@ print "\n\n---------------------------------------------------------------------
 for i in range(RANDOM_KEYS_TO_BE_TESTED):
     keygen = KeyGen(KEY_LENGTHS)
     random_binary_strings = keygen.run()
-    random_traces = random.SystemRandom().randint(0, MAX_TRACES_TO_BE_GENERATED)
+    random_traces = random.SystemRandom().randint(1, MAX_TRACES_TO_BE_GENERATED)
 
     print random_binary_strings
     print random_traces
