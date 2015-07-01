@@ -288,7 +288,13 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
             forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
             forward_probability_vectors.append(forward_prob)
 
-            # print "Forward probability vector:", forward_prob
+            print "Forward probability vector:", forward_prob
+            # print "State distribution before updating:", state_distribution
+            # State distribution update
+            state_distribution = copy.deepcopy(forward_prob)
+            for (i,j), value in np.ndenumerate(state_distribution):
+                state_distribution[i,j] = math.fabs(value)
+            # print "State distribution after updating:", state_distribution
 
         # Observation in the trace
         observation_ID += 1
@@ -322,7 +328,14 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                     backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
 
                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
-                # print "Backward probability vector:", backward_prob
+
+                print "Backward probability vector:", backward_prob
+                print "State distribution before updating:", backward_probability_vector
+                # State distribution update
+                backward_probability_vector = copy.deepcopy(backward_prob)
+                for (i,j), value in np.ndenumerate(backward_probability_vector):
+                    backward_probability_vector[i,j] = math.fabs(value)
+                print "State distribution after updating:", backward_probability_vector
 
         observation_ID += 1
 
