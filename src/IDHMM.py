@@ -258,12 +258,15 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
     observation_ID = 0
 
     # Forward step
+    backup_norm_coefficients = np.ones((1, len(observations_list)))
     norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
         for key_bit_value in range(2):
             Oi = get_ith_observation_matrix(observation_model, observation)
             alpha_T = state_distribution * transition_models[key_bit_value]
             forward_prob = alpha_T * Oi
+            # Used when the forward probability is multiplied by the belief and the result is equal to 0
+            backup_forward_prob = copy.deepcopy(forward_prob)
             # The skip dictionary tracks the <key,value> pairs, which represents the transitions having 0 probabilities
             # to occur, given the observation. This skip dictionary is queried in the backward step, to avoid unuseful
             # iterations
@@ -277,24 +280,35 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
             if key_bit_value == 0:
                 for (i,j), value in np.ndenumerate(forward_prob):
                     # Negative values map probabilities related to forward probabilities obtained using the bit 0
-                    forward_prob[i,j] = value * belief[0,observation_ID] * (-1)
+                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
+                    backup_forward_prob[i,j] = math.fabs(value) * (-1)
             else:
                 for (i,j), value in np.ndenumerate(forward_prob):
                     # Positive values map probabilities related to forward probabilities obtained using the bit 1
-                    forward_prob[i,j] = value * belief[0,observation_ID]
+                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID]
+                    backup_forward_prob[i,j] = math.fabs(value)
 
             # The forward probabilities are normalized and the normalization coefficient are stored for being used in
             # the backward step
             forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
-            forward_probability_vectors.append(forward_prob)
+            backup_forward_prob = normalize_and_store_coefficient(backup_forward_prob, backup_norm_coefficients,
+                                                                  observation_ID)
 
             print "Forward probability vector:", forward_prob
+            print "Backup forward probability vector:", backup_forward_prob
             # print "State distribution before updating:", state_distribution
             # State distribution update
-            state_distribution = copy.deepcopy(forward_prob)
-            for (i,j), value in np.ndenumerate(state_distribution):
-                state_distribution[i,j] = math.fabs(value)
-            # print "State distribution after updating:", state_distribution
+            if is_zero(forward_prob) == 1:
+                # The forward probability vector is constituted by only 0s. It cannot be used to update the state
+                # distribution. For optimization reasons, the forward probability vector list is update accordingly
+                state_distribution = copy.deepcopy(backup_forward_prob)
+                forward_probability_vectors.append(backup_forward_prob)
+            else:
+                state_distribution = copy.deepcopy(forward_prob)
+                forward_probability_vectors.append(forward_prob)
+            #for (i,j), value in np.ndenumerate(state_distribution):
+                #state_distribution[i,j] = math.fabs(value)
+                # print "State distribution after updating:", state_distribution
 
         # Observation in the trace
         observation_ID += 1
