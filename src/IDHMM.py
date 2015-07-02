@@ -258,8 +258,8 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
     observation_ID = 0
 
     # Forward step
-    backup_norm_coefficients = np.ones((1, len(observations_list)))
     norm_coefficients = np.ones((1, len(observations_list)))
+    backup_norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
         for key_bit_value in range(2):
             Oi = get_ith_observation_matrix(observation_model, observation)
@@ -327,19 +327,24 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
             if skip_list is not None and not skip_list.__contains__(key_bit_value):
                 Oi = get_ith_observation_matrix(observation_model, observation)
                 beta_T = copy.deepcopy(transition_models[key_bit_value])
+                backup_beta_T = copy.deepcopy(beta_T)
                 if key_bit_value == 0:
                     for (i,j), value in np.ndenumerate(beta_T):
                         # Negative values map probabilities related to backward probabilities obtained using the bit 0
-                        beta_T[i,j] = value * belief[0,observation_ID] * -1
+                        beta_T[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
+                        backup_beta_T = math.fabs(value) * (-1)
                 else:
                     for (i,j), value in np.ndenumerate(beta_T):
                         # Positive values map probabilities related to backward probabilities obtained using the bit 1
-                        beta_T[i,j] = value * belief[0,observation_ID]
+                        beta_T[i,j] = math.fabs(value) * belief[0,observation_ID]
+                        backup_beta_T = math.fabs(value)
                 backward_prob = beta_T * Oi * backward_probability_vector
+                backup_backward_prob = backup_beta_T * Oi * backward_probability_vector
 
-                # Normalization is performed using the coefficient obtained in the forward step
+                # Normalization is performed using the coefficients obtained in the forward step
                 for (i,j), value in np.ndenumerate(backward_prob):
                     backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
+                    backup_backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
 
                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
 
