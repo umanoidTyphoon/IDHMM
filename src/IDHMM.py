@@ -258,6 +258,7 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
     observation_ID = 0
 
     # Forward step
+    coefficients_bitmap = np.zeros((1, len(observations_list)))
     norm_coefficients = np.ones((1, len(observations_list)))
     backup_norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
@@ -303,6 +304,9 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                 # distribution. For optimization reasons, the forward probability vector list is update accordingly
                 state_distribution = copy.deepcopy(backup_forward_prob)
                 forward_probability_vectors.append(backup_forward_prob)
+                # For the reason expressed above, this operation allows to know which normalization coefficient has to
+                # be use in the next normalization
+                coefficients_bitmap[0,observation_ID] = 1
             else:
                 state_distribution = copy.deepcopy(forward_prob)
                 forward_probability_vectors.append(forward_prob)
@@ -316,6 +320,8 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
 
     print "Forward probability vectors:", forward_probability_vectors
     print "Normalization coefficient vector:", norm_coefficients
+    print "Backup normalization coefficient vector:", backup_norm_coefficients
+    print "Coefficient bitmap:", coefficients_bitmap
 
     # Backward step
     observation_ID = 0
@@ -332,29 +338,45 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                     for (i,j), value in np.ndenumerate(beta_T):
                         # Negative values map probabilities related to backward probabilities obtained using the bit 0
                         beta_T[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
-                        backup_beta_T = math.fabs(value) * (-1)
+                        backup_beta_T[i,j] = math.fabs(value) * (-1)
                 else:
                     for (i,j), value in np.ndenumerate(beta_T):
                         # Positive values map probabilities related to backward probabilities obtained using the bit 1
                         beta_T[i,j] = math.fabs(value) * belief[0,observation_ID]
-                        backup_beta_T = math.fabs(value)
+                        backup_beta_T[i,j] = math.fabs(value)
+
+                # Backward probabilities could be negative:
+                for (i,j), value in np.ndenumerate(backward_probability_vector):
+                    backward_probability_vector[i,j] = math.fabs(value)
+
                 backward_prob = beta_T * Oi * backward_probability_vector
                 backup_backward_prob = backup_beta_T * Oi * backward_probability_vector
 
                 # Normalization is performed using the coefficients obtained in the forward step
                 for (i,j), value in np.ndenumerate(backward_prob):
-                    backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
-                    backup_backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
+                    if coefficients_bitmap[0,observation_ID] == 0:
+                        backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
+                    else:
+                        backup_backward_prob[i,j] /= backup_norm_coefficients[0,observation_ID]
 
-                backward_probability_vectors.insert(0, np.transpose(backward_prob))
+                if is_zero(backward_prob) == 1:
+                    # The backward probability vector is constituted by only 0s. A similar reasoning to the one applied
+                    # for the forward step is applied here
+                    backward_probability_vector = copy.deepcopy(backup_backward_prob)
+                    backward_probability_vectors.insert(0, np.transpose(backup_backward_prob))
+                else:
+                    backward_probability_vector = copy.deepcopy(backward_prob)
+                    backward_probability_vectors.insert(0, np.transpose(backward_prob))
 
                 print "Backward probability vector:", backward_prob
-                # print "State distribution before updating:", backward_probability_vector
-                # # State distribution update
-                # backward_probability_vector = copy.deepcopy(backward_prob)
-                # for (i,j), value in np.ndenumerate(backward_probability_vector):
-                #     backward_probability_vector[i,j] = math.fabs(value)
+                print "Backup backward probability vector:", backup_backward_prob
                 # print "State distribution after updating:", backward_probability_vector
+                #     backward_probability_vector[i,j] = math.fabs(value)
+                # for (i,j), value in np.ndenumerate(backward_probability_vector):
+                # backward_probability_vector = copy.deepcopy(backward_prob)
+                # # State distribution update
+                # print "State distribution before updating:", backward_probability_vector
+
 
         observation_ID += 1
 
