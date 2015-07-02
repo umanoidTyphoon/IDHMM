@@ -382,6 +382,7 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
 
     print "Backward probability vectors:", backward_probability_vectors
 
+    # Forward-backward step
     vector_sizes = forward_probability_vectors[0].size
 
     for forward_vector,backward_vector in zip(forward_probability_vectors,backward_probability_vectors):
@@ -415,8 +416,28 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
                 else:
                     belief[0,iteration] = gamma_vector[i,j]
         iteration += 1
+    # The hidden path starts from two
+    iteration = 2
+    hidden_path = init_hidden_path(len(observations_list))
+
+    # Hidden path computation
+    for gamma_vector in gamma_probability_vectors:
+        hidden_state_list = []
+        for (i,j), value in np.ndenumerate(gamma_vector):
+            key_bit_value_aux = -1
+            sign = math.copysign(1, value)
+            if sign < 0:
+                key_bit_value_aux = 0
+            else:
+                key_bit_value_aux = 1
+            hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), key_bit_value_aux, value))
+        hidden_path[iteration] = hidden_state_list
+        iteration += 1
+    hidden_paths.append(hidden_path)
 
     print belief
+    print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    print_hidden_path(hidden_path)
     return belief
 
 
@@ -427,17 +448,18 @@ def get_key_length(observations_string):
     return len(observations_list)
 
 
-def init_hidden_paths(key_length):
-    hidden_paths = []
+def init_hidden_path(key_length):
     hidden_path  = dict()
-    q0 = HiddenState('D', -1, 1.)
-    hidden_path[1] = q0
+    q0D = HiddenState('D', -1, 1.)
+    q0AD = HiddenState('AD', -1, 0.)
+
+    hidden_path[1] = [q0D,q0AD]
 
     for iteration in range(2, key_length + 2):
-        hidden_path[iteration] = HiddenState('Unknown', -1, 0.)
+        hidden_state_list = [HiddenState('Unknown', -1, 0.), HiddenState('Unknown', -1, 0.)]
+        hidden_path[iteration] = hidden_state_list
 
-    hidden_paths.append(hidden_path)
-    return hidden_paths
+    return hidden_path
 
 
 def multi_trace_inference(belief, state_distribution, transition_models, observation_model, trace_list):
@@ -445,9 +467,12 @@ def multi_trace_inference(belief, state_distribution, transition_models, observa
     print "Supposed key length given observations: %d" % key_length
 
     counter = collections.Counter(trace_list)
-    hidden_paths = init_hidden_paths(key_length)
+    hidden_paths = []
+    hidden_path  = init_hidden_path(key_length)
+    hidden_paths.append(hidden_path)
+
     # DEBUG
-    # print "Hidden Path:", print_hidden_path(hidden_paths[0])
+    print "Hidden Path:", print_hidden_path(hidden_paths[0])
     print "Initial belief D_0:", belief
     print "Initial state distribution S_0:", state_distribution
 
@@ -458,7 +483,6 @@ def multi_trace_inference(belief, state_distribution, transition_models, observa
         print "Belief:", belief
         belief = single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model,
                                         trace)
-        hidden_paths = init_hidden_paths(key_length)
 
     print "Final belief:", belief
     return belief
@@ -466,8 +490,11 @@ def multi_trace_inference(belief, state_distribution, transition_models, observa
 
 def print_hidden_path(hidden_path):
     to_string = "{"
-    for state in hidden_path:
-        to_string += str(state) + ": " + str(hidden_path.get(state)) + ", "
+    for step in hidden_path:
+        to_string += str(step) + ": ["
+        for state in hidden_path.get(step):
+             to_string += str(state) + ", "
+        to_string += "], "
     to_string += "}"
 
     return to_string
