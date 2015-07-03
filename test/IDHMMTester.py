@@ -7,8 +7,8 @@ from src.TraceGen import TraceGen
 import random
 
 KEY_LENGTHS = 3
-RANDOM_KEYS_TO_BE_TESTED = 15
-MAX_TRACES_TO_BE_GENERATED = 30
+RANDOM_KEYS_TO_BE_TESTED = 1
+MAX_TRACES_TO_BE_GENERATED = 5
 
 
 def test_correctness(idhmm):
@@ -62,10 +62,10 @@ def test_correctness(idhmm):
 #
 # idhmm = IDHMM("010", ["D AD D", "D AD D", "D AD D"])
 # test_correctness(idhmm)
-
-print "------------------------------------------------------------------------------------------------------------\n\n"
-print "\n\n------------------------------------------------------------------------------------------------------------"
-
+#
+# print "------------------------------------------------------------------------------------------------------------\n\n"
+# print "\n\n------------------------------------------------------------------------------------------------------------"
+#
 # guessed_passwords = 0
 #
 # for i in range(RANDOM_KEYS_TO_BE_TESTED):
@@ -89,7 +89,6 @@ print "\n\n---------------------------------------------------------------------
 # print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
 # print "\n\n--------------------------------------------------------------------------------------------------------"
 
-idhmm = IDHMM("01", ['D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ', 'D D AD ',
-                      'D D AD ', 'D D AD '])
+idhmm = IDHMM("110", ['AD AD AD', 'AD AD AD'])
 
-test_correctness(idhmm)
+print idhmm.infer()

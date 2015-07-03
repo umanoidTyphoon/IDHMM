@@ -249,6 +249,12 @@ def normalize(prob_vector):
     return prob_vector
 
 
+def transition_exist(transition_models, current_state, key_bit, next_state):
+    # if (transition_models[key_bit][IDHMM_STATES.get(current_state),IDHMM_STATES.get(next_state)] != .0) == False:
+    #    print "The check is false!"
+    return transition_models[key_bit][IDHMM_STATES.get(current_state),IDHMM_STATES.get(next_state)] != .0
+
+
 def single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model, trace):
     backward_probability_vectors = []
     forward_probability_vectors = []
@@ -258,12 +264,16 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
     observation_ID = 0
 
     # Forward step
+    coefficients_bitmap = np.zeros((1, len(observations_list)))
     norm_coefficients = np.ones((1, len(observations_list)))
+    backup_norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
         for key_bit_value in range(2):
             Oi = get_ith_observation_matrix(observation_model, observation)
             alpha_T = state_distribution * transition_models[key_bit_value]
             forward_prob = alpha_T * Oi
+            # Used when the forward probability is multiplied by the belief and the result is equal to 0
+            backup_forward_prob = copy.deepcopy(forward_prob)
             # The skip dictionary tracks the <key,value> pairs, which represents the transitions having 0 probabilities
             # to occur, given the observation. This skip dictionary is queried in the backward step, to avoid unuseful
             # iterations
@@ -277,18 +287,38 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
             if key_bit_value == 0:
                 for (i,j), value in np.ndenumerate(forward_prob):
                     # Negative values map probabilities related to forward probabilities obtained using the bit 0
-                    forward_prob[i,j] = value * belief[0,observation_ID] * (-1)
+                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
+                    backup_forward_prob[i,j] = math.fabs(value) * (-1)
             else:
                 for (i,j), value in np.ndenumerate(forward_prob):
                     # Positive values map probabilities related to forward probabilities obtained using the bit 1
-                    forward_prob[i,j] = value * belief[0,observation_ID]
+                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID]
+                    backup_forward_prob[i,j] = math.fabs(value)
 
             # The forward probabilities are normalized and the normalization coefficient are stored for being used in
             # the backward step
             forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
-            forward_probability_vectors.append(forward_prob)
+            backup_forward_prob = normalize_and_store_coefficient(backup_forward_prob, backup_norm_coefficients,
+                                                                  observation_ID)
 
             print "Forward probability vector:", forward_prob
+            print "Backup forward probability vector:", backup_forward_prob
+            # print "State distribution before updating:", state_distribution
+            # State distribution update
+            if is_zero(forward_prob) == 1:
+                # The forward probability vector is constituted by only 0s. It cannot be used to update the state
+                # distribution. For optimization reasons, the forward probability vector list is update accordingly
+                state_distribution = copy.deepcopy(backup_forward_prob)
+                forward_probability_vectors.append(backup_forward_prob)
+                # For the reason expressed above, this operation allows to know which normalization coefficient has to
+                # be use in the next normalization
+                coefficients_bitmap[0,observation_ID] = 1
+            else:
+                state_distribution = copy.deepcopy(forward_prob)
+                forward_probability_vectors.append(forward_prob)
+                #for (i,j), value in np.ndenumerate(state_distribution):
+                #state_distribution[i,j] = math.fabs(value)
+                # print "State distribution after updating:", state_distribution
 
         # Observation in the trace
         observation_ID += 1
@@ -296,73 +326,137 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
 
     print "Forward probability vectors:", forward_probability_vectors
     print "Normalization coefficient vector:", norm_coefficients
+    print "Backup normalization coefficient vector:", backup_norm_coefficients
+    print "Coefficient bitmap:", coefficients_bitmap
 
     # Backward step
-    observation_ID = 0
-    backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
+    # observation_ID = 0
+    # backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
+    #
+    # for observation in reversed(observations_list):
+    #     for key_bit_value in range(2):
+    #         skip_list = skip_dictionary.get(observation)
+    #         if skip_list is not None and not skip_list.__contains__(key_bit_value):
+    #             Oi = get_ith_observation_matrix(observation_model, observation)
+    #             beta_T = copy.deepcopy(transition_models[key_bit_value])
+    #             backup_beta_T = copy.deepcopy(beta_T)
+    #             if key_bit_value == 0:
+    #                 for (i,j), value in np.ndenumerate(beta_T):
+    #                     # Negative values map probabilities related to backward probabilities obtained using the bit 0
+    #                     beta_T[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
+    #                     backup_beta_T[i,j] = math.fabs(value) * (-1)
+    #             else:
+    #                 for (i,j), value in np.ndenumerate(beta_T):
+    #                     # Positive values map probabilities related to backward probabilities obtained using the bit 1
+    #                     beta_T[i,j] = math.fabs(value) * belief[0,observation_ID]
+    #                     backup_beta_T[i,j] = math.fabs(value)
+    #
+    #             # Backward probabilities could be negative:
+    #             for (i,j), value in np.ndenumerate(backward_probability_vector):
+    #                 backward_probability_vector[i,j] = math.fabs(value)
+    #
+    #             backward_prob = beta_T * Oi * backward_probability_vector
+    #             backup_backward_prob = backup_beta_T * Oi * backward_probability_vector
+    #
+    #             # Normalization is performed using the coefficients obtained in the forward step
+    #             for (i,j), value in np.ndenumerate(backward_prob):
+    #                 if coefficients_bitmap[0,observation_ID] == 0:
+    #                     backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
+    #                 else:
+    #                     backup_backward_prob[i,j] /= backup_norm_coefficients[0,observation_ID]
+    #
+    #             if is_zero(backward_prob) == 1:
+    #                 # The backward probability vector is constituted by only 0s. A similar reasoning to the one applied
+    #                 # for the forward step is applied here
+    #                 backward_probability_vector = copy.deepcopy(backup_backward_prob)
+    #                 backward_probability_vectors.insert(0, np.transpose(backup_backward_prob))
+    #             else:
+    #                 backward_probability_vector = copy.deepcopy(backward_prob)
+    #                 backward_probability_vectors.insert(0, np.transpose(backward_prob))
+    #
+    #             print "Backward probability vector:", backward_prob
+    #             print "Backup backward probability vector:", backup_backward_prob
+    #             # print "State distribution after updating:", backward_probability_vector
+    #             #     backward_probability_vector[i,j] = math.fabs(value)
+    #             # for (i,j), value in np.ndenumerate(backward_probability_vector):
+    #             # backward_probability_vector = copy.deepcopy(backward_prob)
+    #             # # State distribution update
+    #             # print "State distribution before updating:", backward_probability_vector
+    #
+    #
+    #     observation_ID += 1
+    #
+    # print "Backward probability vectors:", backward_probability_vectors
+    #
+    # # Forward-backward step
+    # vector_sizes = forward_probability_vectors[0].size
+    #
+    # for forward_vector,backward_vector in zip(forward_probability_vectors,backward_probability_vectors):
+    #     gamma_vector = np.ones((1, vector_sizes))
+    #     for (i,j), value in np.ndenumerate(gamma_vector):
+    #         forward_component = forward_vector[i,j]
+    #         backward_component = backward_vector[i,j]
+    #         # Negative values map probabilities related to gamma probabilities
+    #         if forward_component < 0 and backward_component < 0:
+    #             gamma_vector[i,j] *= -1
+    #
+    #         gamma_vector[i,j] *= forward_component * backward_component
+    #
+    #     # The forward probabilities are normalized
+    #     gamma_vector = normalize(gamma_vector)
+    #     gamma_probability_vectors.append(gamma_vector)
+    #
+    # print "Gamma probability vectors:", gamma_probability_vectors
+    #
+    # # TODO Gamma probabilities need to be divided by P(Y=y)
+    # iteration = 0
+    # print belief
+    # # Update belief process
+    # for gamma_vector in gamma_probability_vectors:
+    #     for (i,j), value in np.ndenumerate(gamma_vector):
+    #         if gamma_vector[i,j] == .0:
+    #             continue
+    #         else:
+    #             if gamma_vector[i,j] < 0:
+    #                 belief[0,iteration] = .0
+    #             else:
+    #                 belief[0,iteration] = gamma_vector[i,j]
+    #     iteration += 1
+    # # The hidden path starts from two
+    # iteration = 2
+    # hidden_path = init_hidden_path(len(observations_list))
+    #
+    # # for hidden_path in hidden_paths:
+    # #     print "-----------------------------"
+    # #     print print_hidden_path(hidden_path)
+    # #     print "-----------------------------"
+    #
+    # # Hidden path computation
+    # for gamma_vector in gamma_probability_vectors:
+    #     hidden_state_list = []
+    #     previous_hidden_state_list = hidden_path.get(iteration - 1)
+    #     for (i,j), value in np.ndenumerate(gamma_vector):
+    #         if value == .0:
+    #             hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, math.fabs(value)))
+    #             continue
+    #         key_bit_value_aux = -1
+    #         sign = math.copysign(1, value)
+    #         if sign < 0:
+    #             key_bit_value_aux = 0
+    #         else:
+    #             key_bit_value_aux = 1
+    #         for previous_hidden_state in previous_hidden_state_list:
+    #             if previous_hidden_state.get_prob() != .0 and \
+    #                transition_exist(transition_models, previous_hidden_state.get_state(), key_bit_value_aux,
+    #                                 IDHMM_IDS.get(j)):
+    #                 previous_hidden_state.set_key_bit(key_bit_value_aux)
+    #         hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, math.fabs(value)))
+    #     hidden_path[iteration] = hidden_state_list
+    #     iteration += 1
 
-    for observation in reversed(observations_list):
-        for key_bit_value in range(2):
-            skip_list = skip_dictionary.get(observation)
-            if skip_list is not None and not skip_list.__contains__(key_bit_value):
-                Oi = get_ith_observation_matrix(observation_model, observation)
-                beta_T = copy.deepcopy(transition_models[key_bit_value])
-                if key_bit_value == 0:
-                    for (i,j), value in np.ndenumerate(beta_T):
-                        # Negative values map probabilities related to backward probabilities obtained using the bit 0
-                        beta_T[i,j] = value * belief[0,observation_ID] * -1
-                else:
-                    for (i,j), value in np.ndenumerate(beta_T):
-                        # Positive values map probabilities related to backward probabilities obtained using the bit 1
-                        beta_T[i,j] = value * belief[0,observation_ID]
-                backward_prob = beta_T * Oi * backward_probability_vector
-
-                # Normalization is performed using the coefficient obtained in the forward step
-                for (i,j), value in np.ndenumerate(backward_prob):
-                    backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
-
-                backward_probability_vectors.insert(0, np.transpose(backward_prob))
-                print "Backward probability vector:", backward_prob
-
-        observation_ID += 1
-
-    print "Backward probability vectors:", backward_probability_vectors
-
-    vector_sizes = forward_probability_vectors[0].size
-
-    for forward_vector,backward_vector in zip(forward_probability_vectors,backward_probability_vectors):
-        gamma_vector = np.ones((1, vector_sizes))
-        for (i,j), value in np.ndenumerate(gamma_vector):
-            forward_component = forward_vector[i,j]
-            backward_component = backward_vector[i,j]
-            # Negative values map probabilities related to gamma probabilities
-            if forward_component < 0 and backward_component < 0:
-                gamma_vector[i,j] *= -1
-
-            gamma_vector[i,j] *= forward_component * backward_component
-
-        # The forward probabilities are normalized
-        gamma_vector = normalize(gamma_vector)
-        gamma_probability_vectors.append(gamma_vector)
-
-    print "Gamma probability vectors:", gamma_probability_vectors
-
-    # TODO Gamma probabilities need to be divided by P(Y=y)
-    iteration = 0
     print belief
-    # Update belief process
-    for gamma_vector in gamma_probability_vectors:
-        for (i,j), value in np.ndenumerate(gamma_vector):
-            if gamma_vector[i,j] == .0:
-                continue
-            else:
-                if gamma_vector[i,j] < 0:
-                    belief[0,iteration] = .0
-                else:
-                    belief[0,iteration] = gamma_vector[i,j]
-        iteration += 1
-
-    print belief
+    # print print_hidden_path(hidden_path)
+    # hidden_paths.append(hidden_path)
     return belief
 
 
@@ -373,17 +467,19 @@ def get_key_length(observations_string):
     return len(observations_list)
 
 
-def init_hidden_paths(key_length):
-    hidden_paths = []
+def init_hidden_path(key_length):
     hidden_path  = dict()
-    q0 = HiddenState('D', -1, 1.)
-    hidden_path[1] = q0
+    q0D   = HiddenState('D', -1, 1.)
+    q0AD  = HiddenState('AD', -1, 0.)
+    q0RAD = HiddenState('RAD', -1, 0.)
+
+    hidden_path[1] = [q0D,q0AD,q0RAD]
 
     for iteration in range(2, key_length + 2):
-        hidden_path[iteration] = HiddenState('Unknown', -1, 0.)
+        hidden_state_list = [HiddenState('Unknown', -1, 0.), HiddenState('Unknown', -1, 0.), HiddenState('Unknown', -1, 0.)]
+        hidden_path[iteration] = hidden_state_list
 
-    hidden_paths.append(hidden_path)
-    return hidden_paths
+    return hidden_path
 
 
 def multi_trace_inference(belief, state_distribution, transition_models, observation_model, trace_list):
@@ -391,9 +487,12 @@ def multi_trace_inference(belief, state_distribution, transition_models, observa
     print "Supposed key length given observations: %d" % key_length
 
     counter = collections.Counter(trace_list)
-    hidden_paths = init_hidden_paths(key_length)
+    hidden_paths = []
+    hidden_path  = init_hidden_path(key_length)
+    hidden_paths.append(hidden_path)
+
     # DEBUG
-    # print "Hidden Path:", print_hidden_path(hidden_paths[0])
+    print "Hidden Path:", print_hidden_path(hidden_paths[0])
     print "Initial belief D_0:", belief
     print "Initial state distribution S_0:", state_distribution
 
@@ -404,16 +503,19 @@ def multi_trace_inference(belief, state_distribution, transition_models, observa
         print "Belief:", belief
         belief = single_trace_inference(hidden_paths, belief, state_distribution, transition_models, observation_model,
                                         trace)
-        hidden_paths = init_hidden_paths(key_length)
-
+        for hidden_path in hidden_paths:
+            print print_hidden_path(hidden_path)
     print "Final belief:", belief
     return belief
 
 
 def print_hidden_path(hidden_path):
     to_string = "{"
-    for state in hidden_path:
-        to_string += str(state) + ": " + str(hidden_path.get(state)) + ", "
+    for step in hidden_path:
+        to_string += str(step) + ": ["
+        for state in hidden_path.get(step):
+             to_string += str(state) + ", "
+        to_string += "], "
     to_string += "}"
 
     return to_string

@@ -20,21 +20,20 @@ class TraceGen():
         while counter < self.traces_to_be_generated:
             print "P: ", random_point
 
-            eccsm  = ObservedECCScalarMultiplication(self.key, random_point)
-            # reccsm = ObservedRandomizedECCScalarMultiplication(self.key, random_point)
+            # eccsm  = ObservedECCScalarMultiplication(self.key, random_point)
+            reccsm = ObservedRandomizedECCScalarMultiplication(self.key, random_point)
 
-            print eccsm
-            # print reccsm
+            # print eccsm
+            print reccsm
 
-            print "ECCSM result: %d"  % eccsm.run()
-            # print "RECCSM result: %d" % reccsm.run()
+            # print "ECCSM result: %d"  % eccsm.run()
+            print "RECCSM result: %d" % reccsm.run()
 
-            print "ECCSM observations: ", eccsm.get_obs()
-            # print "RECCSM observation: ", reccsm.get_obs()
-            print "____________________________________________", eccsm.get_obs()
+            # print "ECCSM observations: ", eccsm.get_obs()
+            print "RECCSM observation: ", reccsm.get_obs()
 
-            # self.trace_list.append(reccsm.get_obs())
-            self.trace_list.append(eccsm.get_obs())
+            # self.trace_list.append(eccsm.get_obs())
+            self.trace_list.append(reccsm.get_obs())
 
             counter += 1
 
