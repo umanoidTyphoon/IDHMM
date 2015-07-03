@@ -268,37 +268,44 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
     norm_coefficients = np.ones((1, len(observations_list)))
     backup_norm_coefficients = np.ones((1, len(observations_list)))
     for observation in observations_list:
-        bits_forward_probabilities = []
-        for key_bit_value in range(2):
-            Oi = get_ith_observation_matrix(observation_model, observation)
-            alpha_T = state_distribution * transition_models[key_bit_value]
-            forward_prob = alpha_T * Oi
-            # Used when the forward probability is multiplied by the belief and the result is equal to 0
-            backup_forward_prob = copy.deepcopy(forward_prob)
-            # The skip dictionary tracks the <key,value> pairs, which represents the transitions having 0 probabilities
-            # to occur, given the observation. This skip dictionary is queried in the backward step, to avoid unuseful
-            # iterations
-            # if is_zero(forward_prob) == 1:
-            #     skip_list = skip_dictionary.get(observation)
-            #     if skip_list is None:
-            #         skip_dictionary[observation] = [key_bit_value]
-            #     else:
-            #         skip_list.append(key_bit_value)
-            #     continue
-            if key_bit_value == 0:
-                for (i,j), value in np.ndenumerate(forward_prob):
-                    # Negative values map probabilities related to forward probabilities obtained using the bit 0
-                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
-                    backup_forward_prob[i,j] = math.fabs(value) * (-1)
-            else:
-                for (i,j), value in np.ndenumerate(forward_prob):
-                    # Positive values map probabilities related to forward probabilities obtained using the bit 1
-                    forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID]
-                    backup_forward_prob[i,j] = math.fabs(value)
-            bits_forward_probabilities.append(forward_prob)
+        for state_prob_index in range(state_distribution.size):
+            state_prob = state_distribution[0,state_prob_index]
+            if state_prob != 0:
+                bits_forward_probabilities = []
+                for key_bit_value in range(2):
+                    Oi = get_ith_observation_matrix(observation_model, observation)
+                    alpha_T = state_distribution * transition_models[key_bit_value]
+                    forward_prob = alpha_T * Oi
+                    # Used when the forward probability is multiplied by the belief and the result is equal to 0
+                    backup_forward_prob = copy.deepcopy(forward_prob)
+                    # The skip dictionary tracks the <key,value> pairs, which represents the transitions having 0 probabilities
+                    # to occur, given the observation. This skip dictionary is queried in the backward step, to avoid unuseful
+                    # iterations
+                    # if is_zero(forward_prob) == 1:
+                    #     skip_list = skip_dictionary.get(observation)
+                    #     if skip_list is None:
+                    #         skip_dictionary[observation] = [key_bit_value]
+                    #     else:
+                    #         skip_list.append(key_bit_value)
+                    #     continue
+                    if key_bit_value == 0:
+                        for (i,j), value in np.ndenumerate(forward_prob):
+                            # Negative values map probabilities related to forward probabilities obtained using the bit 0
+                            forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID] * (-1)
+                            backup_forward_prob[i,j] = math.fabs(value) * (-1)
+                    else:
+                        for (i,j), value in np.ndenumerate(forward_prob):
+                            # Positive values map probabilities related to forward probabilities obtained using the bit 1
+                            forward_prob[i,j] = math.fabs(value) * belief[0,observation_ID]
+                            backup_forward_prob[i,j] = math.fabs(value)
+                    bits_forward_probabilities.append(forward_prob)
 
-        # Add the current forward probability to the one computed in the previous iteration
-        forward_prob += bits_forward_probabilities[0]
+        last_forward_prob_computed = copy.deepcopy(forward_prob)
+        # Add the current forward probability to the one computed in the previous iterations
+        for bits_forward_probability in reversed(bits_forward_probabilities):
+            forward_prob += bits_forward_probability
+        # The last forward probability has been added twice
+        forward_prob -= last_forward_prob_computed
 
         forward_prob = normalize_and_store_coefficient(forward_prob, norm_coefficients, observation_ID)
         # The forward probabilities are normalized and the normalization coefficient are stored for being used in
@@ -322,8 +329,8 @@ def single_trace_inference(hidden_paths, belief, state_distribution, transition_
         else:
             state_distribution = copy.deepcopy(forward_prob)
             forward_probability_vectors.append(forward_prob)
-            #for (i,j), value in np.ndenumerate(state_distribution):
-            #state_distribution[i,j] = math.fabs(value)
+            for (i,j), value in np.ndenumerate(state_distribution):
+                state_distribution[i,j] = math.fabs(value)
             # print "State distribution after updating:", state_distribution
 
         # Observation in the trace
