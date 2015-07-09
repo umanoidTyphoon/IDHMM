@@ -32,14 +32,129 @@ class IDHMM:
         # ########################################### END CORRECTNESS TEST #############################################
         self.key = key
         self.trace_list = trace_list
-        self.belief = init_belief(self.key)
-        self.init_state_distribution = init_state_distribution()
-        self.observation_model = init_observation_model()
-        self.transition_models = init_transition_models()
+        self.belief = self.init_belief()
+        self.init_state_distribution = self.init_state_distribution()
+        self.observation_model = self.init_observation_model()
+        self.transition_models = self.init_transition_models()
 
     # TODO Delete it!! Inserted for debugging purposes
     def get_key(self):
         return self.key
+
+    def init_belief(self):
+        key_length = len(self.key)
+        belief = np.zeros((1, key_length))
+        belief.fill(.5)
+
+        return belief
+
+    def init_state_distribution(self):
+        encoded_states = IDHMM_IDS.keys()
+        state_probability_distribution = np.zeros((1, len(encoded_states)))
+
+        for state in encoded_states:
+            if state == 0:
+                state_probability_distribution[0, state] = 1.0
+            else:
+                state_probability_distribution[0, state] = 0.0
+
+        return state_probability_distribution
+
+    def init_observation_model(self):
+        # |-----|---------|---------|
+        # |     |   OD    |   OAD   |
+        # |-----|---------|---------|
+        # |  D  |   1.0   |   0.0   |
+        # |-----|---------|---------|
+        # | AD  |   0.0   |   0.5   |
+        # |-----|---------|---------|
+        # | RAD |   0.0   |   0.5   |
+        # |-----|---------|---------|
+        model = matrix([[1.0, .0], [.0, .5], [.0, .5]])
+
+        return model
+
+    def init_observation_model_test(self):
+        # |-----|---------|---------|
+        # |     |   OD    |   OAD   |
+        # |-----|---------|---------|
+        # |  D  |   1.0   |   0.0   |
+        # |-----|---------|---------|
+        # | AD  |   0.0   |   1.0   |
+        # |-----|---------|---------|
+        model = matrix([[1., .0], [.0, 1.]])
+
+        return model
+
+    def init_transition_models(self):
+        models = []
+        # Key bit is 0
+        # |-----|-----|------|-----|
+        # |     |  D  |  AD  | RAD |
+        # |-----|-----|------|-----|
+        # |  D  | .5  |  .0  | .5  |
+        # |-----|-----|------|-----|
+        # | AD  | .5  |  .0  | .5  |
+        # |-----|-----|------|-----|
+        # | RAD | .5  |  .0  | .5  |
+        # |-----|-----|------|-----|
+        transition_model_key_bit0 = matrix([[.5, .0, .5], [.5, .0, .5], [.5, .0, .5]])
+
+        # Key bit is 1
+        # |-----|-----|---------|-----|
+        # |     |  D  |    AD   | RAD |
+        # |-----|-----|---------|-----|
+        # |  D  | .0  |   1.0   | .0  |
+        # |-----|-----|---------|-----|
+        # | AD  | .0  |   1.0   | .0  |
+        # |-----|-----|---------|-----|
+        # | RAD | .0  |   1.0   | .0  |
+        # |-----|-----|---------|-----|
+        transition_model_key_bit1 = matrix([[.0, 1.0, .0], [.0, 1.0, .0], [.0, 1.0, .0]])
+
+        # print "Transition model associated to key bit 0:\n", transition_model_key_bit0
+        # print "Transition model associated to key bit 1:\n", transition_model_key_bit1
+
+        models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
+        return models
+
+    def init_transition_models_test(self):
+        models = []
+        # Key bit is 0
+        # |-----|---------|---------|
+        # |     |    D    |    AD   |
+        # |-----|---------|---------|
+        # |  D  |   1.0   |   .0    |
+        # |-----|---------|---------|
+        # | AD  |   1.0   |   .0    |
+        # |-----|---------|---------|
+        transition_model_key_bit0 = matrix([[1.0, .0], [1.0, .0]])
+
+        # Key bit is 1
+        # |-----|---------|---------|
+        # |     |    D    |    AD   |
+        # |-----|---------|---------|
+        # |  D  |   .0    |   1.0   |
+        # |-----|---------|---------|
+        # | AD  |   .0    |   1.0   |
+        # |-----|---------|---------|
+        transition_model_key_bit1 = matrix([[.0, 1.0], [.0, 1.0]])
+
+        # print "Transition model associated to key bit 0:\n", transition_model_key_bit0
+        # print "Transition model associated to key bit 1:\n", transition_model_key_bit1
+
+        models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
+        return models
+
+    def get_ith_observation_matrix(self, observation):
+        ith_column = self.observation_model[:, IDHMM_STATES.get(observation)]
+        ith_observation_matrix = np.zeros(shape=(ith_column.size,ith_column.size))
+
+        for (i,j), value in np.ndenumerate(ith_observation_matrix):
+            if i == j:
+                ith_observation_matrix[i,j] = ith_column[i].item()
+
+        return ith_observation_matrix
 
     def compute_alpha_parms(self, observations_list, norm_coefficients):
         forward_probability_vectors = []
@@ -52,7 +167,7 @@ class IDHMM:
                 if state_prob != .0:
                     bits_forward_probabilities = []
                     for key_bit_value in range(2):
-                        Oi = get_ith_observation_matrix(self.observation_model, observation)
+                        Oi = self.get_ith_observation_matrix(observation)
                         alpha_T = state_distribution * self.transition_models[key_bit_value]
                         forward_prob = alpha_T * Oi
                         if key_bit_value == 0:
@@ -97,7 +212,7 @@ class IDHMM:
             for (i,j), state_prob in np.ndenumerate(backward_probability_vector):
                 state_backward_probabilities = []
                 if state_prob != .0:
-                    Oi = get_ith_observation_matrix(self.observation_model, observation)
+                    Oi = self.get_ith_observation_matrix(observation)
                     bits_beta_T_transitions = []
                     for key_bit_value in range(2):
                         beta_T = copy.deepcopy(self.transition_models[key_bit_value])
@@ -197,26 +312,22 @@ class IDHMM:
             hidden_state_list = []
             previous_hidden_state_list = hidden_path.get(iteration - 1)
             for (i,j), value in np.ndenumerate(gamma_vector):
-                if value == .0:
-                    hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, math.fabs(value)))
-                    continue
                 key_bit_value_aux = -1
-                sign = math.copysign(1, value)
-                if sign < 0:
-                    key_bit_value_aux = 0
-                else:
+                if IDHMM_IDS.get(j) == 'AD':
                     key_bit_value_aux = 1
+                else:
+                    key_bit_value_aux = 0
                 for previous_hidden_state in previous_hidden_state_list:
                     if previous_hidden_state.get_prob() != .0 and \
                        transition_exist(self.transition_models, previous_hidden_state.get_state(), key_bit_value_aux,
                                         IDHMM_IDS.get(j)):
                         previous_hidden_state.set_key_bit(key_bit_value_aux)
-                hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, math.fabs(value)))
+                hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, value))
             hidden_path[iteration] = hidden_state_list
             iteration += 1
 
-        # print print_hidden_path(hidden_path)
-        # hidden_paths.append(hidden_path)
+        print print_hidden_path(hidden_path)
+        hidden_paths.append(hidden_path)
         return self.belief
 
     def multi_trace_inference(self):
@@ -288,128 +399,6 @@ class HiddenState:
 
     def __str__(self):
         return "<'" + self.state + "', " + str(self.key_bit) + ", " + str(self.prob) + ">"
-
-
-def init_belief(key):
-    key_length = len(key)
-    belief = np.zeros((1, key_length))
-    belief.fill(.5)
-
-    return belief
-
-
-def init_state_distribution():
-    encoded_states = IDHMM_IDS.keys()
-    state_probability_distribution = np.zeros((1, len(encoded_states)))
-
-    for state in encoded_states:
-        if state == 0:
-            state_probability_distribution[0, state] = 1.0
-        else:
-            state_probability_distribution[0, state] = 0.0
-
-    return state_probability_distribution
-
-
-def init_observation_model():
-    # |-----|---------|---------|
-    # |     |   OD    |   OAD   |
-    # |-----|---------|---------|
-    # |  D  |   1.0   |   0.0   |
-    # |-----|---------|---------|
-    # | AD  |   0.0   |   0.5   |
-    # |-----|---------|---------|
-    # | RAD |   0.0   |   0.5   |
-    # |-----|---------|---------|
-    model = matrix([[1.0, .0], [.0, .5], [.0, .5]])
-
-    return model
-
-
-def init_observation_model_test():
-    # |-----|---------|---------|
-    # |     |   OD    |   OAD   |
-    # |-----|---------|---------|
-    # |  D  |   1.0   |   0.0   |
-    # |-----|---------|---------|
-    # | AD  |   0.0   |   1.0   |
-    # |-----|---------|---------|
-    model = matrix([[1., .0], [.0, 1.]])
-
-    return model
-
-
-def init_transition_models():
-    models = []
-    # Key bit is 0
-    # |-----|-----|------|-----|
-    # |     |  D  |  AD  | RAD |
-    # |-----|-----|------|-----|
-    # |  D  | .5  |  .0  | .5  |
-    # |-----|-----|------|-----|
-    # | AD  | .5  |  .0  | .5  |
-    # |-----|-----|------|-----|
-    # | RAD | .5  |  .0  | .5  |
-    # |-----|-----|------|-----|
-    transition_model_key_bit0 = matrix([[.5, .0, .5], [.5, .0, .5], [.5, .0, .5]])
-
-    # Key bit is 1
-    # |-----|-----|---------|-----|
-    # |     |  D  |    AD   | RAD |
-    # |-----|-----|---------|-----|
-    # |  D  | .0  |   1.0   | .0  |
-    # |-----|-----|---------|-----|
-    # | AD  | .0  |   1.0   | .0  |
-    # |-----|-----|---------|-----|
-    # | RAD | .0  |   1.0   | .0  |
-    # |-----|-----|---------|-----|
-    transition_model_key_bit1 = matrix([[.0, 1.0, .0], [.0, 1.0, .0], [.0, 1.0, .0]])
-
-    # print "Transition model associated to key bit 0:\n", transition_model_key_bit0
-    # print "Transition model associated to key bit 1:\n", transition_model_key_bit1
-
-    models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
-    return models
-
-
-def init_transition_models_test():
-    models = []
-    # Key bit is 0
-    # |-----|---------|---------|
-    # |     |    D    |    AD   |
-    # |-----|---------|---------|
-    # |  D  |   1.0   |   .0    |
-    # |-----|---------|---------|
-    # | AD  |   1.0   |   .0    |
-    # |-----|---------|---------|
-    transition_model_key_bit0 = matrix([[1.0, .0], [1.0, .0]])
-
-    # Key bit is 1
-    # |-----|---------|---------|
-    # |     |    D    |    AD   |
-    # |-----|---------|---------|
-    # |  D  |   .0    |   1.0   |
-    # |-----|---------|---------|
-    # | AD  |   .0    |   1.0   |
-    # |-----|---------|---------|
-    transition_model_key_bit1 = matrix([[.0, 1.0], [.0, 1.0]])
-
-    # print "Transition model associated to key bit 0:\n", transition_model_key_bit0
-    # print "Transition model associated to key bit 1:\n", transition_model_key_bit1
-
-    models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
-    return models
-
-
-def get_ith_observation_matrix(observation_model, observation):
-    ith_column = observation_model[:, IDHMM_STATES.get(observation)]
-    ith_observation_matrix = np.zeros(shape=(ith_column.size,ith_column.size))
-
-    for (i,j), value in np.ndenumerate(ith_observation_matrix):
-        if i == j:
-            ith_observation_matrix[i,j] = ith_column[i].item()
-
-    return ith_observation_matrix
 
 
 def is_zero(prob_vector):
