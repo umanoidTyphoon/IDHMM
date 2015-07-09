@@ -16,14 +16,16 @@ def test_correctness(idhmm):
     correctly_guessed = 0
 
     guessed_key = idhmm.infer()
-    print "********************************************************************************************************\n\n"
+    print "********************************************************************************************************" \
+          "*****************************************************************\n\n"
     if guessed_key == idhmm.get_key():
         correctly_guessed = 1
         print "TEST PASSED: KEY CORRECTLY GUESSED!\nThe key given in input was", idhmm.get_key()
     else:
         correctly_guessed = 0
         print "TEST FAILED: KEY NOT GUESSED!\nThe key given in input was", idhmm.get_key()
-    print "\n\n********************************************************************************************************"
+    print "\n\n********************************************************************************************************" \
+          "*****************************************************************"
 
     return correctly_guessed
 

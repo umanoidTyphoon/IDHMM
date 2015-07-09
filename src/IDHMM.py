@@ -41,11 +41,10 @@ class IDHMM:
     def get_key(self):
         return self.key
 
-    def compute_alpha_parms(self, observations_list):
+    def compute_alpha_parms(self, observations_list, norm_coefficients):
         forward_probability_vectors = []
         observation_ID = 0
-
-        norm_coefficients = np.ones((1, len(observations_list)))
+        state_distribution = self.init_state_distribution
 
         # Forward step
         for observation in observations_list:
@@ -77,7 +76,7 @@ class IDHMM:
 
             # DEBUG
             # print "State distribution before updating:", state_distribution
-            print "IDHMM decrypter :: Forward probability vector computed:", forward_prob
+            # print "IDHMM decrypter :: Forward probability vector computed:", forward_prob
 
             # State distribution update
             state_distribution = copy.deepcopy(forward_prob)
@@ -88,62 +87,34 @@ class IDHMM:
 
         return forward_probability_vectors
 
-    def single_trace_inference(self, hidden_paths, trace):
+    def compute_beta_parms(self, observations_list, norm_coefficients):
         backward_probability_vectors = []
-        forward_probability_vectors = []
-        gamma_probability_vectors = []
-        observations_list = trace.split()
-
-        forward_probability_vectors = self.compute_alpha_parms(self, observations_list)
-
-        # DEBUG
-        # print "Normalization coefficient vector:", norm_coefficients
-        print "IDHMM decrypter :: Forward probability vectors:", forward_probability_vectors
-
-        # Backward step
         observation_ID = 0
         backward_probability_vector = np.transpose(np.ones((1, len(IDHMM_STATES.keys()))))
 
+        # Backward step
         for observation in reversed(observations_list):
             for (i,j), state_prob in np.ndenumerate(backward_probability_vector):
                 state_backward_probabilities = []
                 if state_prob != .0:
-                    skip_list = skip_dictionary.get(observation)
-                    # if skip_list is not None and not skip_list.__contains__(key_bit_value):
-                    Oi = get_ith_observation_matrix(observation_model, observation)
+                    Oi = get_ith_observation_matrix(self.observation_model, observation)
                     bits_beta_T_transitions = []
                     for key_bit_value in range(2):
-                        beta_T = copy.deepcopy(transition_models[key_bit_value])
-                        # backup_beta_T = copy.deepcopy(beta_T)
+                        beta_T = copy.deepcopy(self.transition_models[key_bit_value])
                         if key_bit_value == 0:
                             for (i,j), value in np.ndenumerate(beta_T):
-                                # Negative values map probabilities related to backward probabilities obtained using the bit 0
-                                beta_T[i,j] = value * (1. - belief[0,observation_ID])# * (-1)
-                                # backup_beta_T[i,j] = value # * (-1)
+                                beta_T[i,j] = value * (1. - self.belief[0,observation_ID])
                         else:
                             for (i,j), value in np.ndenumerate(beta_T):
-                                # Positive values map probabilities related to backward probabilities obtained using the bit 1
-                                beta_T[i,j] = value * belief[0,observation_ID]
-                                # backup_beta_T[i,j] = value
+                                beta_T[i,j] = value * self.belief[0,observation_ID]
                         bits_beta_T_transitions.append(beta_T)
-
                     # Add the current transition matrix to the one computed in the previous iteration (since the bits are
                     # only 0 and 1)
                     beta_T += bits_beta_T_transitions[0]
 
-                    # Backward probabilities could be negative:
-                    # for (i,j), value in np.ndenumerate(backward_probability_vector):
-                    # backward_probability_vector[i,j] = math.fabs(value)
-
                     backward_prob = beta_T * Oi * backward_probability_vector
-                    # backup_backward_prob = backup_beta_T * Oi * backward_probability_vector
-                    # Normalization is performed using the coefficients obtained in the forward step
                     for (i,j), value in np.ndenumerate(backward_prob):
-                        if coefficients_bitmap[0,observation_ID] == 0:
-                            backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
-                        else:
-                            # backup_backward_prob[i,j] /= backup_norm_coefficients[0,observation_ID]
-                            print "Else branch"
+                        backward_prob[i,j] = value / norm_coefficients[0,observation_ID]
                     state_backward_probabilities.append(backward_prob)
 
             last_backward_prob = copy.deepcopy(backward_prob)
@@ -151,25 +122,25 @@ class IDHMM:
                 backward_prob += state_backward_probability
             backward_prob -= last_backward_prob
 
+            # DEBUG
+            # print "IDHMM decrypter :: Backward probability vector:", backward_prob
+            # print "State distribution before updating:", backward_probability_vector
+
             backward_probability_vector = copy.deepcopy(backward_prob)
             backward_probability_vectors.insert(0, np.transpose(backward_prob))
 
-            print "Backward probability vector:", backward_prob
-            # print "Backup backward probability vector:", backup_backward_prob
+            # DEBUG
             # print "State distribution after updating:", backward_probability_vector
-            #     backward_probability_vector[i,j] = math.fabs(value)
-            # for (i,j), value in np.ndenumerate(backward_probability_vector):
-            # backward_probability_vector = copy.deepcopy(backward_prob)
-            # # State distribution update
-            # print "State distribution before updating:", backward_probability_vector
 
             observation_ID += 1
 
-        print "Backward probability vectors:", backward_probability_vectors
+        return backward_probability_vectors
 
-        # Forward-backward step
+    def compute_gamma_parms(self, forward_probability_vectors,backward_probability_vectors):
+        gamma_probability_vectors = []
         vector_sizes = forward_probability_vectors[0].size
 
+        # Forward-backward step
         for forward_vector,backward_vector in zip(forward_probability_vectors,backward_probability_vectors):
             gamma_vector = np.ones((1, vector_sizes))
             for (i,j), value in np.ndenumerate(gamma_vector):
@@ -182,19 +153,40 @@ class IDHMM:
             gamma_vector = normalize(gamma_vector)
             gamma_probability_vectors.append(gamma_vector)
 
-        print "Gamma probability vectors:", gamma_probability_vectors
+        return gamma_probability_vectors
+
+    def single_trace_inference(self, hidden_paths, trace):
+        observations_list = trace.split()
+        norm_coefficients = np.ones((1, len(observations_list)))
+
+        forward_probability_vectors = self.compute_alpha_parms(observations_list, norm_coefficients)
+        print "IDHMM decrypter :: Forward probability vectors computed:", forward_probability_vectors
+
+        # DEBUG
+        # print "Normalization coefficient vector:", norm_coefficients
+
+        backward_probability_vectors = self.compute_beta_parms(observations_list, norm_coefficients)
+
+        print "IDHMM decrypter :: Backward probability vectors computed:", backward_probability_vectors
+
+        gamma_probability_vectors = self.compute_gamma_parms(forward_probability_vectors,backward_probability_vectors)
+
+        print "IDHMM decrypter :: Gamma probability vectors computed:", gamma_probability_vectors
 
         # TODO Gamma probabilities need to be divided by P(Y=y)
         iteration = 0
-        print belief
+        # DEBUG
+        # print belief
+
         # Update belief process
         for gamma_vector in gamma_probability_vectors:
-            belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')]
+            self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')]
             iteration += 1
         # The hidden path starts from two
         iteration = 2
         hidden_path = init_hidden_path(len(observations_list))
 
+        # DEBUG
         # for hidden_path in hidden_paths:
         #     print "-----------------------------"
         #     print print_hidden_path(hidden_path)
@@ -216,45 +208,44 @@ class IDHMM:
                     key_bit_value_aux = 1
                 for previous_hidden_state in previous_hidden_state_list:
                     if previous_hidden_state.get_prob() != .0 and \
-                       transition_exist(transition_models, previous_hidden_state.get_state(), key_bit_value_aux,
+                       transition_exist(self.transition_models, previous_hidden_state.get_state(), key_bit_value_aux,
                                         IDHMM_IDS.get(j)):
                         previous_hidden_state.set_key_bit(key_bit_value_aux)
                 hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, math.fabs(value)))
             hidden_path[iteration] = hidden_state_list
             iteration += 1
 
-        print belief
         # print print_hidden_path(hidden_path)
         # hidden_paths.append(hidden_path)
+        return self.belief
+
+    def multi_trace_inference(self):
+        key_length = get_key_length(self.trace_list[0])
+        print "IDHMM decrypter :: Supposed key length given observations: %d" % key_length
+
+        counter = collections.Counter(self.trace_list)
+        hidden_paths = []
+        hidden_path = init_hidden_path(key_length)
+        hidden_paths.append(hidden_path)
+
+        # DEBUG
+        # print "Hidden Path:", print_hidden_path(hidden_paths[0])
+        # print "Initial state distribution S_0:", state_distribution
+        print "IDHMM decrypter :: Initial belief on the key bits:", self.belief
+
+        for trace in self.trace_list:
+            # DEBUG
+            # print "Bit number - %d" % key_bit
+            # print "Belief:", belief
+            print "IDHMM decrypter :: Trace under analysis:", trace
+
+            belief = self.single_trace_inference(hidden_paths, trace)
+
+            for hidden_path in hidden_paths:
+                print print_hidden_path(hidden_path)
+        # DEBUG
+        # print "Final belief:", belief
         return belief
-
-        def multi_trace_inference(self):
-            key_length = get_key_length(self.trace_list[0])
-            print "IDHMM decrypter :: Supposed key length given observations - %d" % key_length
-
-            counter = collections.Counter(self.trace_list)
-            hidden_paths = []
-            hidden_path  = init_hidden_path(key_length)
-            hidden_paths.append(hidden_path)
-
-            # DEBUG
-            # print "Hidden Path:", print_hidden_path(hidden_paths[0])
-            # print "Initial state distribution S_0:", state_distribution
-            print "IDHMM decrypter :: Initial belief on the key bits:", self.belief
-
-            for trace in self.trace_list:
-                # DEBUG
-                # print "Bit number - %d" % key_bit
-                # print "Belief:", belief
-                print "IDHMM decrypter :: Trace under analysis:", trace
-
-                belief = single_trace_inference(hidden_paths, trace)
-
-                for hidden_path in hidden_paths:
-                    print print_hidden_path(hidden_path)
-            # DEBUG
-            # print "Final belief:", belief
-            return belief
 
     def infer(self):
         guessed_key = ""
