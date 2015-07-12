@@ -335,7 +335,7 @@ class IDHMM:
 
     def multi_trace_inference(self):
         key_length = get_key_length(self.trace_list[0])
-        print "IDHMM decrypter :: Supposed key length given observations: %d" % key_length
+        print "\nIDHMM decrypter :: Supposed key length given observations: %d" % key_length
 
         counter = collections.Counter(self.trace_list)
         hidden_paths = []
@@ -352,11 +352,11 @@ class IDHMM:
             # DEBUG
             # print "Bit number - %d" % key_bit
             # print "Belief:", belief
-            print "IDHMM decrypter :: Trace under analysis:", trace
+            print "\nIDHMM decrypter :: Trace under analysis:", trace
 
             belief = self.single_trace_inference(hidden_paths, trace)
 
-        print "IDHMM decrypter :: Hidden paths computed: "
+        print "\nIDHMM decrypter :: Hidden paths computed: "
         for hidden_path in hidden_paths:
             print print_hidden_path(hidden_path)
         # DEBUG
