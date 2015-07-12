@@ -297,37 +297,40 @@ class IDHMM:
         for gamma_vector in gamma_probability_vectors:
             self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')]
             iteration += 1
-        # The hidden path starts from two
-        iteration = 2
-        hidden_path = init_hidden_path(len(observations_list))
+
+        iteration = -1
 
         # DEBUG
+        # hidden_path = init_hidden_path(len(observations_list))
         # for hidden_path in hidden_paths:
-        #     print "-----------------------------"
-        #     print print_hidden_path(hidden_path)
-        #     print "-----------------------------"
+        #      print "-----------------------------"
+        #      print print_hidden_path(hidden_path)
+        #      print "-----------------------------"
 
-        # Hidden path computation
+        hidden_states_list = []
+        # Most likely hidden path in the computation
+        # Start state initialization
+        q0 = HiddenState('D', -1, 1.)
+        hidden_states_list.append(q0)
         for gamma_vector in gamma_probability_vectors:
-            hidden_state_list = []
-            previous_hidden_state_list = hidden_path.get(iteration - 1)
-            for (i,j), value in np.ndenumerate(gamma_vector):
-                key_bit_value_aux = -1
-                if IDHMM_IDS.get(j) == 'AD':
-                    key_bit_value_aux = 1
-                else:
-                    key_bit_value_aux = 0
-                for previous_hidden_state in previous_hidden_state_list:
-                    if previous_hidden_state.get_prob() != .0 and \
-                       transition_exist(self.transition_models, previous_hidden_state.get_state(), key_bit_value_aux,
-                                        IDHMM_IDS.get(j)):
-                        previous_hidden_state.set_key_bit(key_bit_value_aux)
-                hidden_state_list.append(HiddenState(IDHMM_IDS.get(j), -1, value))
-            hidden_path[iteration] = hidden_state_list
             iteration += 1
+            most_likely_hidden_state_index = gamma_vector.argmax()
+            most_likely_hidden_state_prob = np.amax(gamma_vector)
+            most_likely_key_bit = -1
+            if self.belief[0,iteration] <= .5:
+                most_likely_key_bit = 0
+            else:
+                most_likely_key_bit = 1
+            most_likely_previous_hidden_state = hidden_states_list[iteration]
+            most_likely_previous_hidden_state.set_key_bit(most_likely_key_bit)
+            most_likely_hidden_state = HiddenState(IDHMM_IDS.get(most_likely_hidden_state_index), -1,
+                                                   most_likely_hidden_state_prob)
+            hidden_states_list.append(most_likely_hidden_state)
 
-        print print_hidden_path(hidden_path)
-        hidden_paths.append(hidden_path)
+        # PREVIOUS VERSION
+        # print print_hidden_path(hidden_path)
+        hidden_paths.append(hidden_states_list)
+
         return self.belief
 
     def multi_trace_inference(self):
@@ -336,8 +339,9 @@ class IDHMM:
 
         counter = collections.Counter(self.trace_list)
         hidden_paths = []
-        hidden_path = init_hidden_path(key_length)
-        hidden_paths.append(hidden_path)
+        # Old version of hidden path computation
+        # hidden_path = init_hidden_path(key_length)
+        # hidden_paths.append(hidden_path)
 
         # DEBUG
         # print "Hidden Path:", print_hidden_path(hidden_paths[0])
@@ -352,8 +356,9 @@ class IDHMM:
 
             belief = self.single_trace_inference(hidden_paths, trace)
 
-            for hidden_path in hidden_paths:
-                print print_hidden_path(hidden_path)
+        print "IDHMM decrypter :: Hidden paths computed: "
+        for hidden_path in hidden_paths:
+            print print_hidden_path(hidden_path)
         # DEBUG
         # print "Final belief:", belief
         return belief
@@ -440,8 +445,6 @@ def normalize(prob_vector):
 
 
 def transition_exist(transition_models, current_state, key_bit, next_state):
-    # if (transition_models[key_bit][IDHMM_STATES.get(current_state),IDHMM_STATES.get(next_state)] != .0) == False:
-    #    print "The check is false!"
     return transition_models[key_bit][IDHMM_STATES.get(current_state),IDHMM_STATES.get(next_state)] != .0
 
 
@@ -466,14 +469,30 @@ def init_hidden_path(key_length):
 
     return hidden_path
 
+# Old version of hidden path printing
+# def print_hidden_path(hidden_path):
+#     to_string = "{"
+#     for step in hidden_path:
+#         to_string += str(step) + ": ["
+#         for state in hidden_path.get(step):
+#              to_string += str(state) + ", "
+#         to_string += "], "
+#     to_string += "}"
+#
+#     return to_string
+
 
 def print_hidden_path(hidden_path):
-    to_string = "{"
-    for step in hidden_path:
-        to_string += str(step) + ": ["
-        for state in hidden_path.get(step):
-             to_string += str(state) + ", "
-        to_string += "], "
+    iteration = 0
+    path_length = len(hidden_path)
+    to_string = "\t- {"
+
+    for hidden_state in hidden_path:
+        if iteration < path_length - 1:
+            to_string += "q" + str(iteration) + ":[" + str(hidden_state) + "], "
+        else:
+            to_string += "q" + str(iteration) + ":[" + str(hidden_state) + "]"
+        iteration += 1
     to_string += "}"
 
     return to_string

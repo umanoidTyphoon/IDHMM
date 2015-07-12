@@ -8,7 +8,7 @@ import random
 
 KEY_LENGTHS = 3
 RANDOM_KEYS_TO_BE_TESTED = 10
-MAX_TRACES_TO_BE_GENERATED = 15
+MAX_TRACES_TO_BE_GENERATED = 4
 
 # TODO Take into account that the observations could not be sufficient to guess the password. The password has not been
 # TODO guessed but the algorithm is correct
@@ -74,7 +74,7 @@ guessed_passwords = 0
 for i in range(RANDOM_KEYS_TO_BE_TESTED):
     keygen = KeyGen(KEY_LENGTHS)
     random_binary_strings = keygen.run()
-    random_traces = random.SystemRandom().randint(10, MAX_TRACES_TO_BE_GENERATED)
+    random_traces = random.SystemRandom().randint(1, MAX_TRACES_TO_BE_GENERATED)
 
     print random_binary_strings
     print random_traces
