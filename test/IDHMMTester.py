@@ -91,6 +91,11 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
 print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
 # print "\n\n--------------------------------------------------------------------------------------------------------"
 
-# idhmm = IDHMM("110", ['AD AD AD', 'AD AD D', 'AD AD AD'])
+# idhmm = IDHMM("000", ['D AD D', 'D AD AD', 'D AD AD'])
+#
+# print test_correctness(idhmm)
+#
+# idhmm = IDHMM("100", ['AD D D ', 'AD D D ', 'AD D D ', 'AD D D '])
+#
+# print test_correctness(idhmm)
 
-#print idhmm.infer()

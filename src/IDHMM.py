@@ -251,7 +251,7 @@ class IDHMM:
 
         return backward_probability_vectors
 
-    def compute_gamma_parms(self, forward_probability_vectors,backward_probability_vectors):
+    def compute_gamma_parms(self, counter, trace, forward_probability_vectors, backward_probability_vectors):
         gamma_probability_vectors = []
         vector_sizes = forward_probability_vectors[0].size
 
@@ -261,8 +261,9 @@ class IDHMM:
             for (i,j), value in np.ndenumerate(gamma_vector):
                 forward_component = forward_vector[i,j]
                 backward_component = backward_vector[i,j]
+                trace_frequency = float(counter[trace]) / sum(counter.values())
 
-                gamma_vector[i,j] *= forward_component * backward_component
+                gamma_vector[i,j] *= (forward_component * backward_component) / trace_frequency
 
             # The forward probabilities are normalized
             gamma_vector = normalize(gamma_vector)
@@ -270,7 +271,7 @@ class IDHMM:
 
         return gamma_probability_vectors
 
-    def single_trace_inference(self, hidden_paths, trace):
+    def single_trace_inference(self, hidden_paths, trace, counter):
         observations_list = trace.split()
         observations_list_length = len(observations_list)
         norm_coefficients = np.ones((1, observations_list_length))
@@ -285,20 +286,18 @@ class IDHMM:
 
         print "IDHMM decrypter :: Backward probability vectors computed:", backward_probability_vectors
 
-        gamma_probability_vectors = self.compute_gamma_parms(forward_probability_vectors,backward_probability_vectors)
+        gamma_probability_vectors = self.compute_gamma_parms(counter, trace, forward_probability_vectors,
+                                                             backward_probability_vectors)
 
         print "IDHMM decrypter :: Gamma probability vectors computed:", gamma_probability_vectors
 
         iteration = 0
-        counter = collections.Counter(observations_list)
         # DEBUG
         # print belief
 
         # Update belief process
         for gamma_vector in gamma_probability_vectors:
-            observation = observations_list[iteration]
-            observation_frequency = float(counter[observation]) / float(observations_list_length)
-            self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')] / observation_frequency
+            self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')]
             iteration += 1
 
         iteration = -1
@@ -341,6 +340,8 @@ class IDHMM:
         print "\nIDHMM decrypter :: Supposed key length given observations: %d" % key_length
 
         hidden_paths = []
+        counter = collections.Counter(self.trace_list)
+
         # Old version of hidden path computation
         # hidden_path = init_hidden_path(key_length)
         # hidden_paths.append(hidden_path)
@@ -356,7 +357,7 @@ class IDHMM:
             # print "Belief:", belief
             print "\nIDHMM decrypter :: Trace under analysis:", trace
 
-            belief = self.single_trace_inference(hidden_paths, trace)
+            belief = self.single_trace_inference(hidden_paths, trace, counter)
 
         print "\nIDHMM decrypter :: Hidden paths computed: "
         for hidden_path in hidden_paths:
