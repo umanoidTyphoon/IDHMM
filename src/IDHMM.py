@@ -272,7 +272,8 @@ class IDHMM:
 
     def single_trace_inference(self, hidden_paths, trace):
         observations_list = trace.split()
-        norm_coefficients = np.ones((1, len(observations_list)))
+        observations_list_length = len(observations_list)
+        norm_coefficients = np.ones((1, observations_list_length))
 
         forward_probability_vectors = self.compute_alpha_parms(observations_list, norm_coefficients)
         print "IDHMM decrypter :: Forward probability vectors computed:", forward_probability_vectors
@@ -288,14 +289,16 @@ class IDHMM:
 
         print "IDHMM decrypter :: Gamma probability vectors computed:", gamma_probability_vectors
 
-        # TODO Gamma probabilities need to be divided by P(Y=y)
         iteration = 0
+        counter = collections.Counter(observations_list)
         # DEBUG
         # print belief
 
         # Update belief process
         for gamma_vector in gamma_probability_vectors:
-            self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')]
+            observation = observations_list[iteration]
+            observation_frequency = float(counter[observation]) / float(observations_list_length)
+            self.belief[0,iteration] = gamma_vector[0,IDHMM_STATES.get('AD')] / observation_frequency
             iteration += 1
 
         iteration = -1
@@ -337,7 +340,6 @@ class IDHMM:
         key_length = get_key_length(self.trace_list[0])
         print "\nIDHMM decrypter :: Supposed key length given observations: %d" % key_length
 
-        counter = collections.Counter(self.trace_list)
         hidden_paths = []
         # Old version of hidden path computation
         # hidden_path = init_hidden_path(key_length)
@@ -469,6 +471,7 @@ def init_hidden_path(key_length):
 
     return hidden_path
 
+
 # Old version of hidden path printing
 # def print_hidden_path(hidden_path):
 #     to_string = "{"
@@ -494,18 +497,5 @@ def print_hidden_path(hidden_path):
             to_string += "q" + str(iteration) + ":[" + str(hidden_state) + "]"
         iteration += 1
     to_string += "}"
-
-    return to_string
-
-
-def print_hidden_set(hidden_set):
-    to_string = "("
-    index = 0
-    while index < len(hidden_set):
-        identifier = hidden_set[index]
-        hidden_state = hidden_set[index + 1]
-        to_string += "<" + str(identifier) + "," + str(hidden_state) + ">, "
-        index += 2
-    to_string += ")"
 
     return to_string

@@ -29,7 +29,6 @@ def test_correctness(idhmm):
 
     return correctly_guessed
 
-
 # idhmm = IDHMM("0101", ["D AD D AD", "D AD D AD", "D AD D AD", "D AD D AD"])
 # test_correctness(idhmm)
 #
@@ -90,7 +89,7 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     guessed_passwords += guessed
 
 print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
-print "\n\n--------------------------------------------------------------------------------------------------------"
+# print "\n\n--------------------------------------------------------------------------------------------------------"
 
 # idhmm = IDHMM("110", ['AD AD AD', 'AD AD D', 'AD AD AD'])
 
