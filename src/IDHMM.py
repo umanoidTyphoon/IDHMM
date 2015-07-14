@@ -370,13 +370,13 @@ class IDHMM:
         guessed_key = ""
         belief = self.multi_trace_inference()
 
-        print "Final belief: ", belief
+        print "\nIDHMM decrypter :: Final belief: ", belief
         for (i,j), value in np.ndenumerate(belief):
             if value > .5:
                 guessed_key += "1"
             else:
                     guessed_key += "0"
-        print "Guessed key:", guessed_key
+        print "IDHMM decrypter :: Guessed key:", guessed_key
 
         return guessed_key
 
@@ -453,7 +453,6 @@ def transition_exist(transition_models, current_state, key_bit, next_state):
 
 def get_key_length(observations_string):
     observations_list = observations_string.split()
-    print "Observations list: ", observations_list
 
     return len(observations_list)
 
