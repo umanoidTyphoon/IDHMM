@@ -36,7 +36,7 @@ class TraceGen():
         p, _ = elliptic_curve.at(G_x)
 
         while counter < self.traces_to_be_generated:
-            print "IDHMM tester >> TraceGenerator :: Elliptic curve point P -", p
+            print "\nIDHMM tester >> TraceGenerator :: Elliptic curve point P -", p
 
             # eccsm  = ObservedECCScalarMultiplication(self.key, random_point)
             reccsm = ObservedRandomizedECCScalarMultiplication(self.key, elliptic_curve, p)
@@ -45,7 +45,7 @@ class TraceGen():
             # print reccsm
 
             # print "ECCSM result: %d"  % eccsm.run()
-            print "IDHMM tester >> TraceGenerator :: Elliptic curve point Q - ", reccsm.run()
+            print "IDHMM tester >> TraceGenerator :: Elliptic curve point Q -", reccsm.run()
 
             # print "ECCSM observations: ", eccsm.get_obs()
             print "IDHMM tester >> TraceGenerator :: RECCSM observation: ", reccsm.get_obs()
@@ -59,8 +59,14 @@ class TraceGen():
         formatted_trace_list = []
 
         for observation_list in self.trace_list:
+            iteration = 0
+            last_observation = len(observation_list) - 1
             for observation in observation_list:
-                observations += observation + " "
+                if iteration == last_observation:
+                    observations += observation
+                else:
+                    observations += observation + " "
+                iteration += 1
             formatted_trace_list.append(observations)
             observations = ""
 

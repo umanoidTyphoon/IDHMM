@@ -17,14 +17,16 @@ def test_correctness(idhmm):
 
     guessed_key = idhmm.infer()
     print "\n********************************************************************************************************" \
-          "*****************************************************************\n\n"
+          "*****************************************************************\n"
     if guessed_key == idhmm.get_key():
         correctly_guessed = 1
-        print "TEST PASSED: KEY CORRECTLY GUESSED!\nThe key given in input was", idhmm.get_key()
+        print "IDHMM tester :: TEST PASSED - KEY CORRECTLY GUESSED!\nIDHMM tester :: The key given in input was", \
+              idhmm.get_key()
     else:
         correctly_guessed = 0
-        print "TEST FAILED: KEY NOT GUESSED!\nThe key given in input was", idhmm.get_key()
-    print "\n\n********************************************************************************************************" \
+        print "IDHMM tester :: TEST FAILED: KEY NOT GUESSED!\nIDHMM tester :: The key given in input was",\
+               idhmm.get_key()
+    print "\n********************************************************************************************************" \
           "*****************************************************************\n"
 
     return correctly_guessed
@@ -81,8 +83,7 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     trace_gen = TraceGen(random_binary_strings, random_traces)
     traces = trace_gen.generate()
 
-    # TODO Correct the trace printing and and add IDHMM tester >> to the decrypter
-    print "IDHMM tester :: List of generated traces", traces
+    print "\nIDHMM tester :: List of generated traces", traces
 
     idhmm = IDHMM(random_binary_strings, traces)
     guessed = test_correctness(idhmm)
