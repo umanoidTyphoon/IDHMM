@@ -75,20 +75,20 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     random_binary_strings = keygen.run()
     random_traces = random.SystemRandom().randint(1, MAX_TRACES_TO_BE_GENERATED)
 
-    print random_binary_strings
-    print random_traces
+    print "IDHMM tester :: Random binary key generated:", random_binary_strings
+    print "IDHMM tester :: Number of traces that will be generated from the random binary key:", random_traces
 
     trace_gen = TraceGen(random_binary_strings, random_traces)
     traces = trace_gen.generate()
 
-    print traces
-    print len(traces)
+    # TODO Correct the trace printing and and add IDHMM tester >> to the decrypter
+    print "IDHMM tester :: List of generated traces", traces
 
     idhmm = IDHMM(random_binary_strings, traces)
     guessed = test_correctness(idhmm)
     guessed_passwords += guessed
 
-print "Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
+print "IDHMM tester :: Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
 # print "\n\n--------------------------------------------------------------------------------------------------------"
 
 # idhmm = IDHMM("000", ['D AD D', 'D AD AD', 'D AD AD'])

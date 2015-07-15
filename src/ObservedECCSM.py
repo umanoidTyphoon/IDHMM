@@ -1,6 +1,7 @@
 __author__ = 'umanoidTyphoon'
 
 from abc import ABCMeta, abstractmethod
+import collections
 import random
 
 
@@ -46,9 +47,12 @@ class ObservedECCScalarMultiplication(Algorithm):
 
 class ObservedRandomizedECCScalarMultiplication(Algorithm):
 
-    def __init__(self, key, ecc_p):
+    def __init__(self, key, ec, ecc_p):
         self.key = key
+        self.ec = ec
         self.ecc_p = ecc_p
+        self.Coord = collections.namedtuple("Coord", ["x", "y"])
+
 
         # Observation list:
         # - D: elliptic point doubling
@@ -60,7 +64,7 @@ class ObservedRandomizedECCScalarMultiplication(Algorithm):
 
     def run(self):
         ecc_q = self.ecc_p
-        p = 0
+        p = self.Coord(0,0)
 
         for char in self.key:
             bit = int(char)
@@ -69,15 +73,16 @@ class ObservedRandomizedECCScalarMultiplication(Algorithm):
 
             if bit == 0 :
                 if random_bit == 1:
-                    r += ecc_q
+                    r = self.ec.add(r,ecc_q)
                     self.obs.append("AD")
                 else:
                     self.obs.append("D")
             else:
-                p += ecc_q
+                p = self.ec.add(p,ecc_q)
                 self.obs.append("AD")
-            ecc_q = 2 * ecc_q
+            ecc_q = self.ec.add(ecc_q,ecc_q)
         return p
 
     def __str__(self):
-        return 'RECCSM parms: <' + str(self.key) + ', ' + str(self.ecc_p) + '>'
+        return 'Elliptic Curve Scalar Multiplication Module :: RECCSM parms: <' + str(self.key) + ', ' + str(self.ecc_p)\
+                + '>'
