@@ -40,6 +40,7 @@ class TraceGen():
 
             # eccsm  = ObservedECCScalarMultiplication(self.key, random_point)
             reccsm = ObservedRandomizedECCScalarMultiplication(self.key, elliptic_curve, p)
+            reccsm.run()
 
             # print eccsm
             # print reccsm
