@@ -112,7 +112,7 @@ class IDHMM:
         # |-----|-----|---------|-----|
         transition_model_key_bit1 = matrix([[.0, 1.0, .0], [.0, 1.0, .0], [.0, 1.0, .0]])
 
-        # print "Transition model associated to key bit 0:\n", transition_model_key_bit0
+        # print"Transition model associated to key bit 0:\n", transition_model_key_bit0
         # print "Transition model associated to key bit 1:\n", transition_model_key_bit1
 
         models.append(transition_model_key_bit0); models.append(transition_model_key_bit1)
@@ -277,19 +277,19 @@ class IDHMM:
         norm_coefficients = np.ones((1, observations_list_length))
 
         forward_probability_vectors = self.compute_alpha_parms(observations_list, norm_coefficients)
-        print "IDHMM tester >> IDHMM decrypter :: Forward probability vectors computed:", forward_probability_vectors
+        # print"IDHMM tester >> IDHMM decrypter :: Forward probability vectors computed:", forward_probability_vectors
 
         # DEBUG
         # print "Normalization coefficient vector:", norm_coefficients
 
         backward_probability_vectors = self.compute_beta_parms(observations_list, norm_coefficients)
 
-        print "IDHMM tester >> IDHMM decrypter :: Backward probability vectors computed:", backward_probability_vectors
+        # print"IDHMM tester >> IDHMM decrypter :: Backward probability vectors computed:", backward_probability_vectors
 
         gamma_probability_vectors = self.compute_gamma_parms(counter, trace, forward_probability_vectors,
                                                              backward_probability_vectors)
 
-        print "IDHMM tester >> IDHMM decrypter :: Gamma probability vectors computed:", gamma_probability_vectors
+        # print"IDHMM tester >> IDHMM decrypter :: Gamma probability vectors computed:", gamma_probability_vectors
 
         iteration = 0
         # DEBUG
@@ -337,7 +337,7 @@ class IDHMM:
 
     def multi_trace_inference(self):
         key_length = get_key_length(self.trace_list[0])
-        print "\nIDHMM tester >> IDHMM decrypter :: Supposed key length given observations: %d" % key_length
+        # print"\nIDHMM tester >> IDHMM decrypter :: Supposed key length given observations: %d" % key_length
 
         hidden_paths = []
         counter = collections.Counter(self.trace_list)
@@ -349,19 +349,19 @@ class IDHMM:
         # DEBUG
         # print "Hidden Path:", print_hidden_path(hidden_paths[0])
         # print "Initial state distribution S_0:", state_distribution
-        print "IDHMM tester >> IDHMM decrypter :: Initial belief on the key bits:\n", self.belief
+        # print"IDHMM tester >> IDHMM decrypter :: Initial belief on the key bits:\n", self.belief
 
         for trace in self.trace_list:
             # DEBUG
             # print "Bit number - %d" % key_bit
             # print "Belief:", belief
-            print "\nIDHMM tester >> IDHMM decrypter :: Trace under analysis:", trace
+            # print"\nIDHMM tester >> IDHMM decrypter :: Trace under analysis:", trace
 
             belief = self.single_trace_inference(hidden_paths, trace, counter)
 
-        print "\nIDHMM tester >> IDHMM decrypter :: Hidden paths computed: "
-        for hidden_path in hidden_paths:
-            print print_hidden_path(hidden_path)
+        # print"\nIDHMM tester >> IDHMM decrypter :: Hidden paths computed: "
+        # for hidden_path in hidden_paths:
+        # print print_hidden_path(hidden_path)
         # DEBUG
         # print "Final belief:", belief
         return belief
@@ -370,13 +370,13 @@ class IDHMM:
         guessed_key = ""
         belief = self.multi_trace_inference()
 
-        print "\nIDHMM tester >> IDHMM decrypter :: Final belief: \n", belief
+        # print "\nIDHMM tester >> IDHMM decrypter :: Final belief: \n", belief
         for (i,j), value in np.ndenumerate(belief):
             if value > .5:
                 guessed_key += "1"
             else:
                     guessed_key += "0"
-        print "\nIDHMM tester >> IDHMM decrypter :: Guessed key:", guessed_key
+        # print "\nIDHMM tester >> IDHMM decrypter :: Guessed key:", guessed_key
 
         return guessed_key
 

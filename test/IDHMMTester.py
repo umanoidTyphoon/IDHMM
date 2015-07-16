@@ -71,24 +71,24 @@ def test_correctness(idhmm):
 
     correct_key = idhmm.get_key()
     guessed_key = idhmm.infer()
-    print "\n********************************************************************************************************" \
-          "**********************************************************************************************************" \
-          "**********************************************************************************************************" \
-          "**************************************************************************************************\n"
+    # print "\n********************************************************************************************************" \
+    #       "**********************************************************************************************************" \
+    #       "**********************************************************************************************************" \
+    #       "**************************************************************************************************\n"
 
     if guessed_key == correct_key:
         correctly_guessed = 1
-        print "IDHMM tester :: TEST PASSED - KEY CORRECTLY GUESSED!\nIDHMM tester :: The key given in input was", \
-              correct_key
+        # print "IDHMM tester :: TEST PASSED - KEY CORRECTLY GUESSED!\nIDHMM tester :: The key given in input was", \
+        #      correct_key
     else:
         correctly_guessed = 0
-        print "IDHMM tester :: TEST FAILED: KEY NOT GUESSED!\nIDHMM tester :: The key given in input was",\
-               correct_key
+        # print "IDHMM tester :: TEST FAILED: KEY NOT GUESSED!\nIDHMM tester :: The key given in input was",\
+        #       correct_key
         bits_not_correctly_recovered = highlight_wrong_bits(correct_key,guessed_key)
-    print "\n********************************************************************************************************" \
-          "**********************************************************************************************************" \
-          "**********************************************************************************************************" \
-          "**************************************************************************************************\n"
+    # print "\n********************************************************************************************************" \
+    #       "**********************************************************************************************************" \
+    #       "**********************************************************************************************************" \
+    #       "**************************************************************************************************\n"
 
     return correctly_guessed, bits_not_correctly_recovered
 
@@ -139,19 +139,19 @@ for i in range(RANDOM_KEYS_TO_BE_TESTED):
     random_binary_strings = keygen.run()
     random_traces = random.SystemRandom().randint(MIN_TRACES_TO_BE_GENERATED, MAX_TRACES_TO_BE_GENERATED)
 
-    print "IDHMM tester :: Random binary key generated:", random_binary_strings
-    print "IDHMM tester :: Number of traces that will be generated from the random binary key:", random_traces
+    # print "IDHMM tester :: Random binary key generated:", random_binary_strings
+    # print "IDHMM tester :: Number of traces that will be generated from the random binary key:", random_traces
 
     trace_gen = TraceGen(random_binary_strings, random_traces)
     traces = trace_gen.generate()
 
-    print "\nIDHMM tester :: List of generated traces", traces
+    # print "\nIDHMM tester :: List of generated traces", traces
 
     idhmm = IDHMM(random_binary_strings, traces)
     guessed, bits_not_correctly_recovered = test_correctness(idhmm)
     guessed_passwords += guessed
     bits_not_correctly_recovered_list.append(bits_not_correctly_recovered)
 
-print "IDHMM tester :: Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
+# print "IDHMM tester :: Guessed %d over %d passwords!" % (guessed_passwords, RANDOM_KEYS_TO_BE_TESTED)
 
 writeCSV(MIN_TRACES_TO_BE_GENERATED, bits_not_correctly_recovered_list)
