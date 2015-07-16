@@ -11,8 +11,8 @@ import sys
 import time
 
 KEY_LENGTH = 192
-RANDOM_KEYS_TO_BE_TESTED = 10
-MIN_TRACES_TO_BE_GENERATED = 1
+RANDOM_KEYS_TO_BE_TESTED = 1000
+MIN_TRACES_TO_BE_GENERATED = 20
 MAX_TRACES_TO_BE_GENERATED = MIN_TRACES_TO_BE_GENERATED
 CSV_OUTPUT_DIR_PATH = "./output"
 
@@ -67,6 +67,7 @@ def highlight_wrong_bits(correct_key, guessed_key):
 # TODO Take into account that the observations could not be sufficient to guess the password. The password has not been
 # TODO guessed but the algorithm is correct
 def test_correctness(idhmm):
+    bits_not_correctly_recovered = 0
     correctly_guessed = 0
 
     correct_key = idhmm.get_key()
