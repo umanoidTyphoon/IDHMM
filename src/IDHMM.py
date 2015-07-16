@@ -370,13 +370,13 @@ class IDHMM:
         guessed_key = ""
         belief = self.multi_trace_inference()
 
-        print "\nIDHMM tester >> IDHMM decrypter :: Final belief: ", belief
+        print "\nIDHMM tester >> IDHMM decrypter :: Final belief: \n", belief
         for (i,j), value in np.ndenumerate(belief):
             if value > .5:
                 guessed_key += "1"
             else:
                     guessed_key += "0"
-        print "IDHMM tester >> IDHMM decrypter :: Guessed key:", guessed_key
+        print "\nIDHMM tester >> IDHMM decrypter :: Guessed key:", guessed_key
 
         return guessed_key
 
