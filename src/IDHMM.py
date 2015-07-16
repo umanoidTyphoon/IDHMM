@@ -349,7 +349,7 @@ class IDHMM:
         # DEBUG
         # print "Hidden Path:", print_hidden_path(hidden_paths[0])
         # print "Initial state distribution S_0:", state_distribution
-        print "IDHMM tester >> IDHMM decrypter :: Initial belief on the key bits:", self.belief
+        print "IDHMM tester >> IDHMM decrypter :: Initial belief on the key bits:\n", self.belief
 
         for trace in self.trace_list:
             # DEBUG
